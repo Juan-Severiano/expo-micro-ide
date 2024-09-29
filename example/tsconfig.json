@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "expo-micro-ide": ["../src/index"],
+      "expo-micro-ide/*": ["../src/*"]
+    }
+  }
+}
