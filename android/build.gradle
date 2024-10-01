@@ -1,9 +1,9 @@
 apply plugin: 'com.android.library'
 
-group = 'expo.modules.microide'
+group = 'expo.modules.settings'
 version = '0.1.0'
 
-def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+def expoModulesCorePlugin = new File(project(':expo-modules-core').projectDir.absolutePath, 'ExpoModulesCorePlugin.gradle')
 apply from: expoModulesCorePlugin
 applyKotlinExpoModulesCorePlugin()
 useCoreDependencies()
@@ -23,21 +23,70 @@ if (useManagedAndroidSdkVersions) {
     }
   }
   project.android {
-    compileSdkVersion safeExtGet("compileSdkVersion", 34)
+    compileSdkVersion safeExtGet('compileSdkVersion', 34)
     defaultConfig {
-      minSdkVersion safeExtGet("minSdkVersion", 21)
-      targetSdkVersion safeExtGet("targetSdkVersion", 34)
+      minSdkVersion safeExtGet('minSdkVersion', 21)
+      targetSdkVersion safeExtGet('targetSdkVersion', 34)
     }
   }
 }
 
 android {
-  namespace "expo.modules.microide"
-  defaultConfig {
-    versionCode 1
-    versionName "0.1.0"
-  }
+  namespace 'expo.modules.microide'
+      defaultConfig {
+        minSdkVersion safeExtGet('minSdkVersion', 24)
+        targetSdkVersion safeExtGet('targetSdkVersion', 34)
+        versionCode 11
+        versionName '1.6'
+        multiDexEnabled true
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        vectorDrawables {
+      useSupportLibrary true
+        }
+      }
   lintOptions {
     abortOnError false
   }
+  composeOptions {
+        kotlinCompilerExtensionVersion = libs.composeCompiler.get().version
+  }
+}
+
+repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+}
+
+dependencies {
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.lifecycle.runtime.ktx
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.fragment.ktx
+    implementation libs.material
+    implementation libs.gson
+    coreLibraryDesugaring libs.desugar.jdk.libs
+
+    // Navigation Components
+    implementation libs.androidx.navigation.fragment.ktx
+    implementation libs.androidx.navigation.ui.ktx
+
+
+    // Comunicação serial (USB Serial for Android)
+    implementation 'com.github.mik3y:usb-serial-for-android:3.3.0'
+
+//    // Sora Code Editor
+//    implementation platform(libs.soraEditorBom)
+//    implementation libs.soreEditor
+//    implementation libs.language.textmate
+//    implementation libs.language.textmate
+
+    // Compose dependencies
+    implementation platform(libs.androidx.compose.bom)
+    androidTestImplementation platform(libs.androidx.compose.bom)
+    implementation libs.androidx.activity.compose
+    implementation libs.androidx.ui
+    implementation libs.androidx.ui.tooling.preview
+    debugImplementation libs.androidx.ui.tooling
+    implementation libs.androidx.material3
 }
