@@ -202,7 +202,6 @@ class BoardManager(
             return deviceList
         } catch (err: Exception) {
             Log.e(TAG, "detectUsbDevices Error", err)
-//            throw Error("Erro ao conectar: ${err.message}")
             return null
         }
         return devices

@@ -1,28 +1,32 @@
 package expo.modules.microide
 
-import android.hardware.usb.UsbDevice
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
 import expo.modules.microide.managers.BoardManager
 import expo.modules.microide.utils.ConnectionStatus
-import java.util.HashMap
-
 
 class ExpoMicroIdeModule : Module() {
   private var boardManager: BoardManager? = null
+
+  private fun emitStatus(status: ConnectionStatus) {
+    sendEvent("onStatusChange", mapOf(
+      "status" to status.toString()
+    ))
+  }
+
   override fun definition() = ModuleDefinition {
     Name("ExpoMicroIde")
 
+    Events("onStatusChange")
+
     Function("hello") {
-      return@Function "Hello world Kotlin + Expo Modules! 👋"
+      return@Function "Hello world Kotlin asd + Expo Modules! 👋"
     }
 
-
-    AsyncFunction("connectUSB") { promise: Promise ->
+    AsyncFunction("detectUsbDevices") { promise: Promise ->
       val currentActivity = appContext?.currentActivity
       if (currentActivity != null) {
         val handler = Handler(Looper.getMainLooper())
@@ -31,36 +35,36 @@ class ExpoMicroIdeModule : Module() {
             boardManager = BoardManager(
               currentActivity,
               onStatusChanges = { status ->
+                emitStatus(status)
+
                 when (status) {
                   is ConnectionStatus.Connected -> {
                     promise.resolve("USB device connected: ${status.usbDevice.deviceName}")
                   }
                   is ConnectionStatus.Error -> {
-//                    promise.reject("USB_ERROR", "Failed to connect: ${status.error}")
+                    promise.reject("USB_ERROR", "Failed to connect: ${status.error}", null)
                   }
                   else -> {
-//                    promise.reject("USB_ERROR", "Unexpected connection status")
+                    promise.reject("USB_ERROR", "Unexpected connection status", null)
                   }
                 }
               },
               onReceiveData = { data ->
                 println(data)
-                promise.resolve(data) // Resolve the promise with the received data
+                promise.resolve(data)
               }
             )
           }
 
           val devices = boardManager?.detectUsbDevices()
           if (devices != null) {
-            // If devices are detected, resolve the promise with a list or details
             promise.resolve(devices.toString())
           } else {
-            // If no devices found, reject the promise
-//            promise.reject("NO_DEVICES", "No USB devices detected")
+            promise.reject("NO_DEVICES", "No USB devices detected", null)
           }
         }
       } else {
-//        promise.reject("ACTIVITY_ERROR", "Activity context is null")
+        promise.reject("ACTIVITY_ERROR", "Activity context is null", null)
       }
     }
 
