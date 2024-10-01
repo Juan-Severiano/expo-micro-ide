@@ -2,10 +2,12 @@ import * as ExpoMicroIde from "expo-micro-ide";
 import { Button, StyleSheet, Text, View } from "react-native";
 
 export default function App() {
+  const status = ExpoMicroIde.useStatus();
+
   async function connect() {
     try {
       console.log("Clicou");
-      const res = await ExpoMicroIde.connectUSB();
+      const res = await ExpoMicroIde.detectUsbDevices();
       console.log(res);
       console.log("Executou");
     } catch (error) {
@@ -15,6 +17,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
+      <Text>{status}</Text>
       <Text>{ExpoMicroIde.hello()}</Text>
       <Button title="Click me" onPress={connect} />
     </View>
