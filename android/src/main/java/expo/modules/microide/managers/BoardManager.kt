@@ -27,6 +27,7 @@ import expo.modules.microide.managers.CommandsManager.trimSilentResult
 import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
 import expo.modules.microide.utils.ExecutionMode
+import java.util.HashMap
 
 /**
  * This class is responsible for:
@@ -75,9 +76,9 @@ class BoardManager(
 
 
     init {
-        activity.lifecycle.addObserver(this)
+//        activity.lifecycle.addObserver(this)
         getProducts()
-        onStatusChanges?.invoke(ConnectionStatus.Connecting)
+//        onStatusChanges?.invoke(ConnectionStatus.Connecting)
     }
 
     override fun onCreate(owner: LifecycleOwner) {
@@ -182,23 +183,32 @@ class BoardManager(
     /**
      * List the connected devices & connect to the supported devices only
      */
-    fun detectUsbDevices() {
-        usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-        val deviceList = usbManager.deviceList
+    fun detectUsbDevices(): HashMap<String, UsbDevice>? {
+        var devices: HashMap<String, UsbDevice>? = null
+        try {
+            usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+            val deviceList = usbManager.deviceList
+            devices = deviceList
+            val supportedDevice: UsbDevice? = deviceList.values.filter {
+                supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
+            }.getOrNull(0)
 
-        val supportedDevice: UsbDevice? = deviceList.values.filter {
-            supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
-        }.getOrNull(0)
+            Log.i(TAG, "detectUsbDevices - deviceList =  ${deviceList.size}")
 
-        Log.i(TAG, "detectUsbDevices - deviceList =  ${deviceList.size}")
-
-        if (supportedDevice != null) approveDevice(supportedDevice)
-        else if (deviceList.isNotEmpty()) onStatusChanges?.invoke(
-            ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
-        ) else throwError(ConnectionError.NO_DEVICES)
+            if (supportedDevice != null) approveDevice(supportedDevice)
+            else if (deviceList.isNotEmpty()) onStatusChanges?.invoke(
+                ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
+            ) else throwError(ConnectionError.NO_DEVICES)
+            return deviceList
+        } catch (err: Exception) {
+            Log.e(TAG, "detectUsbDevices Error", err)
+//            throw Error("Erro ao conectar: ${err.message}")
+            return null
+        }
+        return devices
     }
 
-    fun approveDevice(usbDevice: UsbDevice) {
+    private fun approveDevice(usbDevice: UsbDevice) {
         Log.i(TAG, "supportedDevice - $usbDevice")
         if (usbManager.hasPermission(usbDevice)) connectToSerial(usbDevice)
         else requestUsbPermission(usbDevice)
@@ -208,7 +218,7 @@ class BoardManager(
         throwError(error = ConnectionError.NOT_SUPPORTED)
     }
 
-    fun onDisconnectDevice() {
+    private fun onDisconnectDevice() {
         throwError(error = ConnectionError.CONNECTION_LOST)
     }
 
@@ -357,7 +367,6 @@ class BoardManager(
         val regexPattern = Regex("\\n>>>\\s*(?:\\r\\n>>>\\s*)*$")
         return regexPattern.replace(input, "")
     }
-
 
     private inline fun <reified T : Parcelable> Intent.parcelable(key: String): T? = when {
         SDK_INT >= 33 -> getParcelableExtra(key, T::class.java)
