@@ -21,7 +21,7 @@ object ThemeMode {
         activity.recreate()
     }
 
-    fun isDark(activity: Activity): Boolean {
+    private fun isDark(activity: Activity): Boolean {
         val sharedPref = activity.getPreferences(Context.MODE_PRIVATE)
         return sharedPref.getBoolean("dark_mode", true)
     }

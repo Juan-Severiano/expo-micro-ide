@@ -2,19 +2,41 @@ package expo.modules.microide
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
 import expo.modules.microide.managers.BoardManager
+import expo.modules.microide.managers.FilesManager
 import expo.modules.microide.utils.ConnectionStatus
 
 class ExpoMicroIdeModule : Module() {
   private var boardManager: BoardManager? = null
+  private var filesManager: FilesManager? = null
 
   private fun emitStatus(status: ConnectionStatus) {
-    sendEvent("onStatusChange", mapOf(
-      "status" to status.toString()
-    ))
+    when(status) {
+      is ConnectionStatus.Connected -> {
+        sendEvent("onStatusChange", mapOf(
+          "status" to "Connected"
+        ))
+      }
+      is ConnectionStatus.Connecting -> {
+        sendEvent("onStatusChange", mapOf(
+          "status" to "Connecting"
+        ))
+      }
+      is ConnectionStatus.Error -> {
+        sendEvent("onStatusChange", mapOf(
+          "status" to status.error.toString()
+        ))
+      }
+      is ConnectionStatus.Approve -> {
+        sendEvent("onStatusChange", mapOf(
+          "status" to "Approve"
+        ))
+      }
+    }
   }
 
   override fun definition() = ModuleDefinition {
@@ -36,6 +58,7 @@ class ExpoMicroIdeModule : Module() {
               currentActivity,
               onStatusChanges = { status ->
                 emitStatus(status)
+                Log.i("Status",status.toString())
 
                 when (status) {
                   is ConnectionStatus.Connected -> {
@@ -68,10 +91,27 @@ class ExpoMicroIdeModule : Module() {
       }
     }
 
-    TODO("Implement send file method")
+    AsyncFunction("showFilesAndDirs") { promise: Promise ->
+      val currentActivity = appContext.currentActivity
+      if (currentActivity != null) {
+        val handler = Handler(Looper.getMainLooper())
+        handler.post {
+          if (filesManager == null && boardManager != null) {
+            filesManager = FilesManager(
+              boardManager!!
+            )
+          }
 
-    TODO("Implement show files and dirs")
-
-    TODO("Implement terminal view")
+          val filesAndDirs = filesManager?.listDir()
+          if (filesAndDirs != null) {
+            promise.resolve(filesAndDirs)
+          } else {
+            promise.reject("NO_FILES", "No files detected in the device", null)
+          }
+        }
+      } else {
+        promise.reject("ACTIVITY_ERROR", "Activity context is null", null)
+      }
+    }
   }
 }

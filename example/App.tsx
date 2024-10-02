@@ -1,4 +1,5 @@
 import * as ExpoMicroIde from "expo-micro-ide";
+import { ConnectionStatus } from "expo-micro-ide/ExpoMicroIdeModule.types";
 import { Button, StyleSheet, Text, View } from "react-native";
 
 export default function App() {
@@ -15,10 +16,26 @@ export default function App() {
     }
   }
 
+  async function getFilesAndDirs() {
+    try {
+      console.log("Clicou");
+      const res = await ExpoMicroIde.showFilesAndDirs();
+      console.log(res);
+      console.log("Executou");
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Text>{status}</Text>
+      <Text>{`${status}`}</Text>
       <Text>{ExpoMicroIde.hello()}</Text>
+      {
+        status === ConnectionStatus.Connect && (
+          <Button title="Show Files" onPress={getFilesAndDirs} />
+        )
+      }
       <Button title="Click me" onPress={connect} />
     </View>
   );
