@@ -27,7 +27,7 @@ class ExpoMicroIdeModule : Module() {
     }
 
     AsyncFunction("detectUsbDevices") { promise: Promise ->
-      val currentActivity = appContext?.currentActivity
+      val currentActivity = appContext.currentActivity
       if (currentActivity != null) {
         val handler = Handler(Looper.getMainLooper())
         handler.post {
@@ -68,5 +68,10 @@ class ExpoMicroIdeModule : Module() {
       }
     }
 
+    TODO("Implement send file method")
+
+    TODO("Implement show files and dirs")
+
+    TODO("Implement terminal view")
   }
 }
