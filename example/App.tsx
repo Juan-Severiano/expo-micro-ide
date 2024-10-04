@@ -32,7 +32,7 @@ export default function App() {
       <Text>{`${status}`}</Text>
       <Text>{ExpoMicroIde.hello()}</Text>
       {
-        status === ConnectionStatus.Connect && (
+        (
           <Button title="Show Files" onPress={getFilesAndDirs} />
         )
       }
