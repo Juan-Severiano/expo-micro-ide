@@ -28,7 +28,7 @@ class ExpoMicroIdeModule : Module() {
   val root = mutableStateOf("")
 
   // Files list in files explorer
-  val files = MutableStateFlow<List<MicroFile>>(listOf())
+  private val files = MutableStateFlow<List<MicroFile>>(listOf())
 
   private fun emitStatus(status: ConnectionStatus) {
     when (status) {

@@ -193,11 +193,9 @@ class BoardManager(
     Log.i(TAG, "detectUsbDevices - deviceList size = ${deviceList.size}")
 
     return if (supportedDevices.isNotEmpty()) {
-      // Se houver dispositivos suportados, aprova o primeiro e retorna a lista
       approveDevice(supportedDevices.first())
       supportedDevices
     } else {
-      // Se nenhum dispositivo for encontrado, dispara um erro e retorna null
       if (deviceList.isNotEmpty()) {
         onStatusChanges?.invoke(ConnectionStatus.Approve(usbDevices = deviceList.values.toList()))
       } else {
@@ -207,7 +205,7 @@ class BoardManager(
     }
   }
   
-  fun approveDevice(usbDevice: UsbDevice) {
+  private fun approveDevice(usbDevice: UsbDevice) {
     Log.i(TAG, "supportedDevice - $usbDevice")
     if (usbManager.hasPermission(usbDevice)) connectToSerial(usbDevice)
     else requestUsbPermission(usbDevice)
@@ -217,7 +215,7 @@ class BoardManager(
     throwError(error = ConnectionError.NOT_SUPPORTED)
   }
 
-  fun onDisconnectDevice() {
+  private fun onDisconnectDevice() {
     throwError(error = ConnectionError.CONNECTION_LOST)
   }
 
@@ -229,20 +227,21 @@ class BoardManager(
 
   @SuppressLint("UnspecifiedRegisterReceiverFlag")
   private fun requestUsbPermission(usbDevice: UsbDevice) {
-    Log.i(TAG, "requestUsbPermission")
+    Log.i(TAG, "Solicitation permission USB")
 
     val permissionIntent = PendingIntent.getBroadcast(
       context,
       0,
       Intent(ACTION_USB_PERMISSION).apply { `package` = context.packageName },
-      if (SDK_INT >= 31) FLAG_MUTABLE or FLAG_UPDATE_CURRENT
-      else 0
+      if (SDK_INT >= 31) FLAG_MUTABLE or FLAG_UPDATE_CURRENT else 0
     )
     val filter = IntentFilter(ACTION_USB_PERMISSION)
 
     if (SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else context.registerReceiver(usbReceiver, filter)
+    } else {
+      context.registerReceiver(usbReceiver, filter)
+    }
 
     permissionGranted = false
     usbManager.requestPermission(usbDevice, permissionIntent)
@@ -250,16 +249,19 @@ class BoardManager(
 
   private val usbReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-      Log.i(TAG, "onReceive")
+      Log.i(TAG, "onReceive USB Permission")
       if (permissionGranted || isPortOpen) return
       if (ACTION_USB_PERMISSION == intent.action) {
         synchronized(this) {
-          Log.d(TAG, "synchronized-onReceive")
-          val device: UsbDevice = intent.parcelable(UsbManager.EXTRA_DEVICE) ?: return
+          val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
           if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+            Log.i(TAG, "Permissão concedida para dispositivo USB")
             permissionGranted = true
-            connectToSerial(device)
+            if (device != null) {
+              connectToSerial(device)
+            }
           } else {
+            Log.e(TAG, "Permissão negada para dispositivo USB")
             throwError(ConnectionError.PERMISSION_DENIED)
           }
         }
@@ -267,13 +269,14 @@ class BoardManager(
     }
   }
 
+
   /**
    * Make a serial connection to a usb device
    */
   private fun connectToSerial(usbDevice: UsbDevice) {
     val allDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
     if (allDrivers.isNullOrEmpty()) {
-      throwError(error = ConnectionError.CANT_OPEN_PORT)
+      throwError(ConnectionError.CANT_OPEN_PORT)
       return
     }
     val ports = allDrivers[0].ports
@@ -283,54 +286,57 @@ class BoardManager(
     port = ports[0]
     Log.i(TAG, "port - $port")
 
-    //select port index = 0, micropython usually has one port
-    port?.open(connection)
     try {
-      //Micropython is considered  as CdcAcmSerial port
-      //so it requires to enable DTR to exchange data.
+      port?.open(connection)
       port?.dtr = true
     } catch (e: Exception) {
       e.printStackTrace()
       throwError(ConnectionError.CANT_OPEN_PORT)
       return
     }
-    //set serial connection parameters
     port?.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
-    // listen for micropython outputs in onNewData callback
-    serialInputOutputManager = SerialInputOutputManager(port, this)
-    serialInputOutputManager?.run()
+
+    serialInputOutputManager = SerialInputOutputManager(port, object : SerialInputOutputManager.Listener {
+      override fun onNewData(data: ByteArray) {
+        val receivedData = String(data, Charsets.UTF_8)
+        Log.i(TAG, "Dados recebidos: $receivedData")
+        onReceiveData?.invoke(receivedData)
+      }
+
+      override fun onRunError(e: Exception) {
+        Log.e(TAG, "Erro ao rodar: ${e.message}")
+        onStatusChanges?.invoke(ConnectionStatus.Error(ConnectionError.CONNECTION_LOST))
+      }
+    })
+
+    Thread(serialInputOutputManager).start()
 
     if (isPortOpen) {
       onStatusChanges?.invoke(ConnectionStatus.Connected(usbDevice))
       storeProductId(usbDevice.productId)
-    } else
+    } else {
       throwError(ConnectionError.CANT_OPEN_PORT)
+    }
 
-    Log.i(TAG, "is open ${port?.isOpen}")
+    Log.i(TAG, "Porta aberta ${port?.isOpen}")
   }
-
 
   override fun onNewData(bytes: ByteArray?) {
     val data = bytes?.toString(Charsets.UTF_8).orEmpty()
-    // when writeSync is called, we need to collect all outputs
-    // of onNewData and append them to a string builder
-    // finally with isDone = true, response is returned to writeSync method
     when (executionMode) {
       ExecutionMode.SCRIPT -> {
         syncData.append(data)
         Log.v(TAG, "$ $data")
         val isDone =
           CommandsManager.isSilentExecutionDone(data) || CommandsManager.isSilentExecutionDone(syncData.toString())
-        //Log.v(TAG, "syncData - $syncData")
-        //Log.i(TAG, "isDone = $isDone")
+
         if (isDone) {
           Log.i(TAG, "syncData -\n$syncData")
           val result = CommandsManager.trimSilentResult(syncData.toString())
           onReadSync?.invoke(result)
         }
       }
-      // in normal write mode, when micropython responses to commands
-      // the output is echoed directly to onReceiveData callback
+
       ExecutionMode.INTERACTIVE -> {
         val response = removeEnding(data)
         Log.v(TAG, "onNewData - response ${Gson().toJson(response)}")
