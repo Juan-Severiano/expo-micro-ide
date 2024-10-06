@@ -1,5 +1,4 @@
 import * as ExpoMicroIde from "expo-micro-ide";
-import { ConnectionStatus } from "expo-micro-ide/ExpoMicroIdeModule.types";
 import { Button, StyleSheet, Text, View } from "react-native";
 
 export default function App() {

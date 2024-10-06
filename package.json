@@ -28,11 +28,10 @@
   "author": "Francisco Juan <juansoussev@gmail.com> (https://github.com/Juan-Severiano)",
   "license": "MIT",
   "homepage": "https://github.com/Juan-Severiano/expo-micro-ide#readme",
-  "dependencies": {},
   "devDependencies": {
     "@types/react": "^18.0.25",
     "expo-module-scripts": "^3.5.2",
-    "expo-modules-core": "^1.12.24"
+    "expo-modules-core": "^1.12.25"
   },
   "peerDependencies": {
     "expo": "*",

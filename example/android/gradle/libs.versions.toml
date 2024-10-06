@@ -62,9 +62,9 @@ firebase-analytics-ktx = { module = "com.google.firebase:firebase-analytics-ktx"
 firebase-crashlytics-ktx = { module = "com.google.firebase:firebase-crashlytics-ktx" }
 
 usb-serial-forandroid = { module = "com.github.mik3y:usb-serial-for-android", version.ref = "usbSerialForAndroid" }
-#soraEditorBom = { module = "io.github.Rosemoe.sora-editor:bom", version.ref = "soraEditorBom" }
-#soreEditor = { module = "io.github.Rosemoe.sora-editor:editor" }
-#language-textmate = { module = "io.github.Rosemoe.sora-editor:language-textmate" }
+soraEditorBom = { module = "io.github.Rosemoe.sora-editor:bom", version.ref = "soraEditorBom" }
+soreEditor = { module = "io.github.Rosemoe.sora-editor:editor" }
+language-textmate = { module = "io.github.Rosemoe.sora-editor:language-textmate" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdk" }
 

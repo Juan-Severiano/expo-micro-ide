@@ -24,7 +24,6 @@ class ExpoMicroIdeModule : Module() {
 
   private val microDevice: MicroDevice? get() = (status.value as? ConnectionStatus.Connected)?.usbDevice?.toMicroDevice()
 
-  // The current path in files explorer
   val root = mutableStateOf("")
 
   // Files list in files explorer
@@ -109,7 +108,6 @@ class ExpoMicroIdeModule : Module() {
         promise.reject("ACTIVITY_ERROR", "Activity context is null", null)
       }
     }
-
 
     AsyncFunction("showFilesAndDirs") { promise: Promise ->
       val handler = Handler(Looper.getMainLooper())
