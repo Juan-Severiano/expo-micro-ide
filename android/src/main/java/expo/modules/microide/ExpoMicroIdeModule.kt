@@ -1,162 +1,102 @@
 package expo.modules.microide
 
-import android.hardware.usb.UsbDevice
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.compose.runtime.mutableStateOf
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kotlin.Promise
 import expo.modules.microide.managers.BoardManager
 import expo.modules.microide.managers.FilesManager
+import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
-import expo.modules.microide.utils.MicroDevice
-import expo.modules.microide.utils.MicroFile
-import expo.modules.microide.utils.toMicroDevice
-import kotlinx.coroutines.flow.MutableStateFlow
 
 class ExpoMicroIdeModule : Module() {
+
   private lateinit var boardManager: BoardManager
   private lateinit var filesManager: FilesManager
-  private val status = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Connecting)
-  private val isConnected: Boolean get() = status.value is ConnectionStatus.Connected
-
-  private val microDevice: MicroDevice? get() = (status.value as? ConnectionStatus.Connected)?.usbDevice?.toMicroDevice()
-
-  val root = mutableStateOf("")
-
-  // Files list in files explorer
-  private val files = MutableStateFlow<List<MicroFile>>(listOf())
-
-  private fun emitStatus(status: ConnectionStatus) {
-    when (status) {
-      is ConnectionStatus.Connected -> {
-        sendEvent("onStatusChange", mapOf("status" to "Connected"))
-      }
-      is ConnectionStatus.Connecting -> {
-        sendEvent("onStatusChange", mapOf("status" to "Connecting"))
-      }
-      is ConnectionStatus.Error -> {
-        sendEvent("onStatusChange", mapOf("status" to status.error.toString()))
-      }
-      is ConnectionStatus.Approve -> {
-        sendEvent("onStatusChange", mapOf("status" to "Approve"))
-      }
-    }
-  }
 
   override fun definition() = ModuleDefinition {
     Name("ExpoMicroIde")
-
-    Events("onStatusChange")
 
     Function("hello") {
       return@Function "Hello world Kotlin + Expo Modules! 👋"
     }
 
-    Property("status") {
-      return@Property status.value.toString()
-    }
-
-    Property("isConnected") {
-      return@Property isConnected
-    }
-
-    Property("board") {
-      return@Property microDevice?.board ?: "No device connected"
-    }
-
-    AsyncFunction("detectUsbDevices") { promise: Promise ->
-      val currentActivity = appContext.currentActivity
-      if (currentActivity != null) {
-        val handler = Handler(Looper.getMainLooper())
-        handler.post {
-          boardManager = BoardManager(
-            currentActivity,
-            onStatusChanges = { newStatus ->
-              status.value = newStatus
-              emitStatus(newStatus)
-            },
-            onReceiveData = { data ->
-              Log.i("USB_DATA", data)
-            }
-          )
-          try {
-            // Detect USB devices and convert them to a list of MicroDevice
-            val devices = boardManager.detectUsbDevices()
-
-            if (devices != null) {
-              if (devices.isNotEmpty()) {
-                val resultArray = devices.map { device ->
-                        mapOf(
-                          "deviceName" to device.deviceName,
-                          "productId" to device.productId,
-                          "vendorId" to device.vendorId
-                        )
-                }
-                promise.resolve(resultArray)
-              } else {
-                promise.reject("NO_DEVICES", "No USB devices detected", null)
-              }
-            }
-          } catch (e: Exception) {
-            promise.reject("DEVICE_ERROR", "Error detecting devices: ${e.message}", null)
-          }
-        }
-      } else {
-        promise.reject("ACTIVITY_ERROR", "Activity context is null", null)
+    AsyncFunction("initialize") { promise: Promise ->
+      try {
+        Log.i("ExpoMicroIdeModule", "Iniciando conexão com a placa...")
+        initializeBoardManager(promise)
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao iniciar: ${e.message}")
+        promise.reject("INITIALIZE_ERROR", e.message, null)
       }
     }
 
-    AsyncFunction("showFilesAndDirs") { promise: Promise ->
-      val handler = Handler(Looper.getMainLooper())
-      handler.post {
-        try {
-          filesManager = FilesManager(boardManager) { fileList ->
-            files.value = fileList
-            // Map the file list to a result array
-            val resultArray = fileList.map { file ->
-              mapOf(
-                "name" to file.name,
-                "path" to file.path,
-                "size" to file.fullPath,
-                "isDirectory" to file.canRun
-              )
-            }
-            promise.resolve(resultArray)
-          }
+    AsyncFunction("listFiles") { promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
           filesManager.listDir()
-        } catch (e: Exception) {
-          promise.reject("FILE_ERROR", "Error listing files: ${e.message}", null)
+          promise.resolve("Arquivos listados com sucesso")
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
         }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao listar arquivos: ${e.message}")
+        promise.reject("LIST_FILES_ERROR", e.message, null)
       }
     }
+  }
 
-    AsyncFunction("readFile") { path: String, promise: Promise ->
-      val handler = Handler(Looper.getMainLooper())
-      handler.post {
-        try {
-          filesManager.read(path) { content ->
-            promise.resolve(content)
-          }
-        } catch (e: Exception) {
-          promise.reject("READ_ERROR", "Error reading file: ${e.message}", null)
-        }
-      }
+  private fun initializeBoardManager(promise: Promise) {
+    val context = appContext.currentActivity ?: run {
+      promise.reject("CONTEXT_ERROR", "Contexto não disponível", null)
+      return
     }
+    val handler = Handler(Looper.getMainLooper())
+    handler.post {
+      boardManager = BoardManager(
+        context = context,
+        onStatusChanges = { status ->
+          when (status) {
+            is ConnectionStatus.Connecting -> Log.i("ExpoMicroIdeModule", "Conectando...")
+            is ConnectionStatus.Connected -> {
+              Log.i("ExpoMicroIdeModule", "Placa conectada com sucesso!")
+              initializeFilesManager()
+              promise.resolve("Placa conectada com sucesso")
+            }
 
-    AsyncFunction("sendFile") { path: String, content: String, promise: Promise ->
-      val handler = Handler(Looper.getMainLooper())
-      handler.post {
-        try {
-          filesManager.write(path, content) {
-            promise.resolve("File sent successfully")
+            is ConnectionStatus.Error -> {
+              val errorMsg = when (status.error) {
+                ConnectionError.NO_DEVICES.toString() -> "Nenhum dispositivo encontrado"
+                ConnectionError.CONNECTION_LOST.toString() -> "Conexão perdida"
+                ConnectionError.CANT_OPEN_PORT.toString() -> "Não foi possível abrir a porta"
+                ConnectionError.PERMISSION_DENIED.toString() -> "Permissão negada"
+                ConnectionError.NOT_SUPPORTED.toString() -> "Dispositivo não suportado"
+                else -> {
+                  "eita caralho"
+                }
+              }
+              Log.e("ExpoMicroIdeModule", "Erro de conexão: $errorMsg")
+              promise.reject("CONNECTION_ERROR", errorMsg, null)
+            }
+
+            else -> Unit
           }
-        } catch (e: Exception) {
-          promise.reject("WRITE_ERROR", "Error sending file: ${e.message}", null)
+        },
+        onReceiveData = { data ->
+          Log.i("ExpoMicroIdeModule", "Dados recebidos: $data")
         }
-      }
+      )
+      boardManager.detectUsbDevices()
     }
+  }
+  
+  private fun initializeFilesManager() {
+    filesManager = FilesManager(boardManager, onUpdateFiles = { files ->
+      Log.i("ExpoMicroIdeModule", "Arquivos atualizados: $files")
+    })
+    filesManager.path = "/"
   }
 }

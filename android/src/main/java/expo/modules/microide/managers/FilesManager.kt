@@ -23,12 +23,19 @@ class FilesManager(
   /**
    * Lists the files and directories in the current path.
    */
-  fun listDir() {
-    val code = CommandsManager.iListDir(path)
-    boardManager.writeInSilentMode(code, onResponse = { result ->
-      decodeFiles(result)
-    })
-  }
+   fun listDir(): String {
+     val code = CommandsManager.iListDir(path)
+     boardManager.writeInSilentMode(code, onResponse = { result ->
+       decodeFiles(result)
+       Log.i("Oi", result)
+     })
+     boardManager.writeCommand("""
+       import machine
+       machine.reset()
+     """.trimIndent())
+     Log.i("DIR", code)
+    return code
+   }
 
   /**
    * Removes the specified file or directory.

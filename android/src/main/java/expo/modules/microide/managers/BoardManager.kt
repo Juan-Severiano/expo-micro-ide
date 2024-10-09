@@ -1,6 +1,14 @@
+/*
+ * Created by Mahmoud Aly - engma7moud3ly@gmail.com
+ * Project Micro REPL - https://github.com/Ma7moud3ly/micro-repl
+ * Copyright (c) 2023 . MIT license.
+ *
+ */
+
 package expo.modules.microide.managers
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_MUTABLE
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
@@ -20,9 +28,12 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
+import com.hoho.android.usbserial.driver.ProbeTable
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.hoho.android.usbserial.util.SerialInputOutputManager
+import expo.modules.microide.managers.CommandsManager
 import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
 import expo.modules.microide.utils.ExecutionMode
@@ -34,7 +45,7 @@ import expo.modules.microide.utils.ExecutionMode
  */
 
 class BoardManager(
-  private val context: Context,
+  private val context: Activity,
   private val onStatusChanges: ((status: ConnectionStatus) -> Unit)? = null,
   private val onReceiveData: ((data: String) -> Unit)? = null,
 ) : SerialInputOutputManager.Listener, DefaultLifecycleObserver {
@@ -177,35 +188,26 @@ class BoardManager(
     }
   }
 
-
   /**
    * List the connected devices & connect to the supported devices only
    */
-  fun detectUsbDevices(): List<UsbDevice>? {
+  fun detectUsbDevices() {
     usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    val deviceList = usbManager.deviceList // Map<Int, UsbDevice>
+    val deviceList = usbManager.deviceList
 
-    // Filtra apenas os dispositivos compatíveis
-    val supportedDevices = deviceList.values.filter {
+    val supportedDevice: UsbDevice? = deviceList.values.filter {
       supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
-    }
+    }.getOrNull(0)
 
-    Log.i(TAG, "detectUsbDevices - deviceList size = ${deviceList.size}")
+    Log.i(TAG, "detectUsbDevices - deviceList =  ${deviceList.size}")
 
-    return if (supportedDevices.isNotEmpty()) {
-      approveDevice(supportedDevices.first())
-      supportedDevices
-    } else {
-      if (deviceList.isNotEmpty()) {
-        onStatusChanges?.invoke(ConnectionStatus.Approve(usbDevices = deviceList.values.toList()))
-      } else {
-        throwError(ConnectionError.NO_DEVICES)
-      }
-      null
-    }
+    if (supportedDevice != null) approveDevice(supportedDevice)
+    else if (deviceList.isNotEmpty()) onStatusChanges?.invoke(
+      ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
+    ) else throwError(ConnectionError.NO_DEVICES)
   }
-  
-  private fun approveDevice(usbDevice: UsbDevice) {
+
+  fun approveDevice(usbDevice: UsbDevice) {
     Log.i(TAG, "supportedDevice - $usbDevice")
     if (usbManager.hasPermission(usbDevice)) connectToSerial(usbDevice)
     else requestUsbPermission(usbDevice)
@@ -215,7 +217,7 @@ class BoardManager(
     throwError(error = ConnectionError.NOT_SUPPORTED)
   }
 
-  private fun onDisconnectDevice() {
+  fun onDisconnectDevice() {
     throwError(error = ConnectionError.CONNECTION_LOST)
   }
 
@@ -227,21 +229,20 @@ class BoardManager(
 
   @SuppressLint("UnspecifiedRegisterReceiverFlag")
   private fun requestUsbPermission(usbDevice: UsbDevice) {
-    Log.i(TAG, "Solicitation permission USB")
+    Log.i(TAG, "requestUsbPermission")
 
     val permissionIntent = PendingIntent.getBroadcast(
       context,
       0,
       Intent(ACTION_USB_PERMISSION).apply { `package` = context.packageName },
-      if (SDK_INT >= 31) FLAG_MUTABLE or FLAG_UPDATE_CURRENT else 0
+      if (SDK_INT >= 31) FLAG_MUTABLE or FLAG_UPDATE_CURRENT
+      else 0
     )
     val filter = IntentFilter(ACTION_USB_PERMISSION)
 
     if (SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-      context.registerReceiver(usbReceiver, filter)
-    }
+    } else context.registerReceiver(usbReceiver, filter)
 
     permissionGranted = false
     usbManager.requestPermission(usbDevice, permissionIntent)
@@ -249,19 +250,17 @@ class BoardManager(
 
   private val usbReceiver = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-      Log.i(TAG, "onReceive USB Permission")
+      Log.i(TAG, "onReceive")
       if (permissionGranted || isPortOpen) return
       if (ACTION_USB_PERMISSION == intent.action) {
         synchronized(this) {
-          val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+          Log.i("ExpoMicroIdeModule", "syncronized")
+          Log.d(TAG, "synchronized-onReceive")
+          val device: UsbDevice = intent.parcelable(UsbManager.EXTRA_DEVICE) ?: return
           if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-            Log.i(TAG, "Permissão concedida para dispositivo USB")
             permissionGranted = true
-            if (device != null) {
-              connectToSerial(device)
-            }
+            connectToSerial(device)
           } else {
-            Log.e(TAG, "Permissão negada para dispositivo USB")
             throwError(ConnectionError.PERMISSION_DENIED)
           }
         }
@@ -269,74 +268,88 @@ class BoardManager(
     }
   }
 
-
   /**
    * Make a serial connection to a usb device
    */
   private fun connectToSerial(usbDevice: UsbDevice) {
-    val allDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
+    val customProber = UsbSerialProber(ProbeTable().apply {
+      addProduct(usbDevice.vendorId, usbDevice.productId, CdcAcmSerialDriver::class.java)
+    })
+
+    val allDrivers = customProber.findAllDrivers(usbManager)
+
     if (allDrivers.isNullOrEmpty()) {
-      throwError(ConnectionError.CANT_OPEN_PORT)
+      Log.e("ExpoMicroIdeModule", "Nenhum driver encontrado para o dispositivo USB.")
       return
     }
+
+    Log.i("ExpoMicroIdeModule", "Drivers encontrados: $allDrivers")
+
     val ports = allDrivers[0].ports
-    if (ports.isEmpty()) return
-    val connection = usbManager.openDevice(usbDevice) ?: return
-    Log.i(TAG, "connection - $connection")
+    if (ports.isEmpty()) {
+      Log.e("ExpoMicroIdeModule", "Nenhuma porta serial encontrada.")
+      return
+    }
+
+    val connection = usbManager.openDevice(usbDevice)
+    if (connection == null) {
+      Log.e("ExpoMicroIdeModule", "Falha ao abrir conexão com o dispositivo USB.")
+      return
+    }
+
+    Log.i(TAG, "Conexão estabelecida: $connection")
+
     port = ports[0]
-    Log.i(TAG, "port - $port")
+    Log.i(TAG, "Porta selecionada: $port")
 
     try {
       port?.open(connection)
       port?.dtr = true
     } catch (e: Exception) {
       e.printStackTrace()
+      Log.e("ExpoMicroIdeModule", "Erro ao abrir a porta serial: ${e.message}")
       throwError(ConnectionError.CANT_OPEN_PORT)
       return
     }
+
+    // Definir parâmetros da conexão serial
     port?.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
 
-    serialInputOutputManager = SerialInputOutputManager(port, object : SerialInputOutputManager.Listener {
-      override fun onNewData(data: ByteArray) {
-        val receivedData = String(data, Charsets.UTF_8)
-        Log.i(TAG, "Dados recebidos: $receivedData")
-        onReceiveData?.invoke(receivedData)
-      }
-
-      override fun onRunError(e: Exception) {
-        Log.e(TAG, "Erro ao rodar: ${e.message}")
-        onStatusChanges?.invoke(ConnectionStatus.Error(ConnectionError.CONNECTION_LOST))
-      }
-    })
-
+    // Iniciar o gerenciador de I/O serial
+    serialInputOutputManager = SerialInputOutputManager(port, this)
     Thread(serialInputOutputManager).start()
 
-    if (isPortOpen) {
+    if (port?.isOpen == true) {
+      Log.i(TAG, "Porta aberta com sucesso.")
       onStatusChanges?.invoke(ConnectionStatus.Connected(usbDevice))
       storeProductId(usbDevice.productId)
     } else {
+      Log.e(TAG, "Erro ao abrir a porta serial.")
       throwError(ConnectionError.CANT_OPEN_PORT)
     }
-
-    Log.i(TAG, "Porta aberta ${port?.isOpen}")
   }
 
   override fun onNewData(bytes: ByteArray?) {
     val data = bytes?.toString(Charsets.UTF_8).orEmpty()
+    // when writeSync is called, we need to collect all outputs
+    // of onNewData and append them to a string builder
+    // finally with isDone = true, response is returned to writeSync method
     when (executionMode) {
       ExecutionMode.SCRIPT -> {
         syncData.append(data)
         Log.v(TAG, "$ $data")
         val isDone =
           CommandsManager.isSilentExecutionDone(data) || CommandsManager.isSilentExecutionDone(syncData.toString())
-
+        Log.v(TAG, "syncData - $syncData")
+        Log.i(TAG, "isDone = $isDone")
         if (isDone) {
           Log.i(TAG, "syncData -\n$syncData")
           val result = CommandsManager.trimSilentResult(syncData.toString())
           onReadSync?.invoke(result)
         }
       }
-
+      // in normal write mode, when micropython responses to commands
+      // the output is echoed directly to onReceiveData callback
       ExecutionMode.INTERACTIVE -> {
         val response = removeEnding(data)
         Log.v(TAG, "onNewData - response ${Gson().toJson(response)}")
@@ -364,7 +377,7 @@ class BoardManager(
     if (port?.isOpen == true) port?.close()
     serialInputOutputManager?.stop()
     onStatusChanges?.invoke(
-      ConnectionStatus.Error(error = error, msg = msg)
+      ConnectionStatus.Error(error = error.toString(), msg = msg)
     )
   }
 

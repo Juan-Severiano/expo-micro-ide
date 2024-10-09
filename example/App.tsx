@@ -1,41 +1,51 @@
 import * as ExpoMicroIde from "expo-micro-ide";
+import React, { useState } from "react";
 import { Button, StyleSheet, Text, View } from "react-native";
 
 export default function App() {
-  const status = ExpoMicroIde.useStatus();
+  const [status, setStatus] = useState("");
+  const [files, setFiles] = useState([]);
 
   async function connect() {
     try {
-      console.log("Clicou");
-      const res = await ExpoMicroIde.detectUsbDevices();
+      console.log("Clicou em detectar dispositivos");
+      const res = await ExpoMicroIde.initialize();
       console.log(res);
-      console.log("Executou");
+      if (res.length > 0) {
+        // await ExpoMicroIde.connectToUsbDevice(res[0].deviceName);
+        setStatus("Conectado a " + res[0].deviceName);
+      } else {
+        setStatus("Nenhum dispositivo encontrado");
+      }
     } catch (error) {
       console.log(error);
+      // @ts-ignore
+      setStatus("Erro ao conectar: " + error?.message);
     }
   }
-
-  async function getFilesAndDirs() {
+  async function list() {
     try {
-      console.log("Clicou");
-      const res = await ExpoMicroIde.showFilesAndDirs();
+      console.log("Clicou em detectar dispositivos");
+      const res = await ExpoMicroIde.listFiles();
       console.log(res);
-      console.log("Executou");
+      if (res.length > 0) {
+      } else {
+        setStatus("Nenhum dispositivo encontrado");
+      }
     } catch (error) {
       console.log(error);
+      // @ts-ignore
+      setStatus("Erro ao conectar: " + error?.message);
     }
   }
 
   return (
     <View style={styles.container}>
-      <Text>{`${status}`}</Text>
-      <Text>{ExpoMicroIde.hello()}</Text>
-      {
-        (
-          <Button title="Show Files" onPress={getFilesAndDirs} />
-        )
-      }
-      <Button title="Click me" onPress={connect} />
+      <Text>Status: {status}</Text>
+      <Button title="Detectar Dispositivos" onPress={connect} />
+      <View>
+      <Button title="LIST" onPress={list} />
+      </View>
     </View>
   );
 }
