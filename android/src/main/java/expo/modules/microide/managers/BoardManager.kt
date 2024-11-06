@@ -206,6 +206,22 @@ class BoardManager(
       ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
     ) else throwError(ConnectionError.NO_DEVICES)
   }
+  
+  fun getUsbConnected() {
+    usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+    val deviceList = usbManager.deviceList
+
+    val supportedDevice: UsbDevice? = deviceList.values.filter {
+      supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
+    }.getOrNull(0)
+
+    Log.i(TAG, "detectUsbDevices - deviceList =  ${deviceList.size}")
+
+    if (supportedDevice != null) approveDevice(supportedDevice)
+    else if (deviceList.isNotEmpty()) onStatusChanges?.invoke(
+      ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
+    ) else throwError(ConnectionError.NO_DEVICES)
+  }
 
   fun approveDevice(usbDevice: UsbDevice) {
     Log.i(TAG, "supportedDevice - $usbDevice")

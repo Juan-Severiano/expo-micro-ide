@@ -12,6 +12,7 @@ export default function App() {
     try {
       console.log("Clicou em detectar dispositivos");
       const res = await ExpoMicroIde.initialize();
+      console.log(res)
       setStatus(res as string);
     } catch (error) {
       console.log(error);
@@ -23,7 +24,7 @@ export default function App() {
   async function list() {
     try {
       console.log("Clicou em listar arquivos");
-      const res = await ExpoMicroIde.listFiles();
+      const res = await ExpoMicroIde.files.list();
       console.log(res);
       if (Object.keys(files).length > 0) {
         setStatus("Arquivos: " + JSON.stringify(Object.keys(files)));
@@ -46,7 +47,7 @@ export default function App() {
       ...prevFiles,
       [fileName]: "",
     }));
-    await ExpoMicroIde.createFile(fileName)
+    await ExpoMicroIde.files.create(fileName)
     setStatus(`Arquivo '${fileName}' criado`);
   }
 
@@ -65,7 +66,7 @@ export default function App() {
       }
       return updatedFiles;
     });
-    await ExpoMicroIde.deleteFile("asd.py")
+    await ExpoMicroIde.files.remove("asd.py")
   }
 
   async function renameFile(newName: string) {
@@ -84,7 +85,7 @@ export default function App() {
       }
       return updatedFiles;
     });
-    await ExpoMicroIde.renameFile("q.py", "juan.py")
+    await ExpoMicroIde.files.rename("q.py", "juan.py")
   }
 
   async function readFile() {
@@ -99,7 +100,7 @@ export default function App() {
     } else {
       setStatus("Arquivo não encontrado");
     }
-    const cont = await ExpoMicroIde.readFile("/main.py")
+    const cont = await ExpoMicroIde.files.read("/main.py")
     if (typeof cont === "string") {
       setContent(cont)
     }

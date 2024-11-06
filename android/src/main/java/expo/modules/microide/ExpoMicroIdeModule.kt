@@ -12,6 +12,7 @@ import expo.modules.microide.managers.FilesManager
 import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
 import expo.modules.microide.utils.MicroFile
+import expo.modules.microide.utils.toMicroDevice
 
 class ExpoMicroIdeModule : Module() {
 
@@ -29,6 +30,7 @@ class ExpoMicroIdeModule : Module() {
       try {
         Log.i("ExpoMicroIdeModule", "Iniciando conexão com a placa...")
         initializeBoardManager(promise)
+//        promise.resolve(devices)
       } catch (e: Exception) {
         Log.e("ExpoMicroIdeModule", "Erro ao iniciar: ${e.message}")
         promise.reject("INITIALIZE_ERROR", e.message, null)
@@ -139,9 +141,11 @@ class ExpoMicroIdeModule : Module() {
           when (status) {
             is ConnectionStatus.Connecting -> Log.i("ExpoMicroIdeModule", "Conectando...")
             is ConnectionStatus.Connected -> {
-              Log.i("ExpoMicroIdeModule", "Placa conectada com sucesso!")
+              val usbDevice = status.usbDevice
+              val microDevice = usbDevice.toMicroDevice()
+              Log.i("ExpoMicroIdeModule", "Placa conectada com sucesso! Dispositivo: ${microDevice.board}")
               initializeFilesManager()
-              promise.resolve("Placa conectada com sucesso")
+              promise.resolve(microDevice.board)
             }
 
             is ConnectionStatus.Error -> {
