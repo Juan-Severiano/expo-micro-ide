@@ -11,6 +11,7 @@ import expo.modules.microide.managers.BoardManager
 import expo.modules.microide.managers.FilesManager
 import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
+import expo.modules.microide.utils.MicroFile
 
 class ExpoMicroIdeModule : Module() {
 
@@ -45,6 +46,82 @@ class ExpoMicroIdeModule : Module() {
       } catch (e: Exception) {
         Log.e("ExpoMicroIdeModule", "Erro ao listar arquivos: ${e.message}")
         promise.reject("LIST_FILES_ERROR", e.message, null)
+      }
+    }
+
+    AsyncFunction("createFile") { name: String, promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
+          val newFile = MicroFile(name = name, path = filesManager.path)
+          filesManager.new(newFile)
+          promise.resolve("Arquivo criado com sucesso")
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao criar arquivo: ${e.message}")
+        promise.reject("CREATE_FILE_ERROR", e.message, null)
+      }
+    }
+
+    AsyncFunction("deleteFile") { fileName: String, promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
+          val fileToDelete = MicroFile(name = fileName, path = filesManager.path)
+          filesManager.remove(fileToDelete)
+          promise.resolve("Arquivo deletado com sucesso")
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao deletar arquivo: ${e.message}")
+        promise.reject("DELETE_FILE_ERROR", e.message, null)
+      }
+    }
+
+    AsyncFunction("renameFile") { oldName: String, newName: String, promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
+          val src = MicroFile(name = oldName, path = filesManager.path)
+          val dst = MicroFile(name = newName, path = filesManager.path)
+          filesManager.rename(src, dst)
+          promise.resolve("Arquivo renomeado com sucesso")
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao renomear arquivo: ${e.message}")
+        promise.reject("RENAME_FILE_ERROR", e.message, null)
+      }
+    }
+
+    AsyncFunction("readFile") { path: String, promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
+          filesManager.read(path) { content ->
+            promise.resolve(content)
+          }
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao ler arquivo: ${e.message}")
+        promise.reject("READ_FILE_ERROR", e.message, null)
+      }
+    }
+    
+    AsyncFunction("writeFile") { path: String, content: String, promise: Promise ->
+      try {
+        if (::filesManager.isInitialized) {
+          filesManager.write(path, content) {
+            promise.resolve("Conteúdo escrito com sucesso")
+          }
+        } else {
+          promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao escrever no arquivo: ${e.message}")
+        promise.reject("WRITE_FILE_ERROR", e.message, null)
       }
     }
   }
