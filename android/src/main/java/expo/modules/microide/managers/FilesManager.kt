@@ -5,6 +5,7 @@ import expo.modules.microide.managers.BoardManager
 import expo.modules.microide.managers.CommandsManager
 import expo.modules.microide.utils.MicroFile
 import org.json.JSONArray
+import org.json.JSONObject
 
 class FilesManager(
   private val boardManager: BoardManager,
@@ -23,19 +24,19 @@ class FilesManager(
   /**
    * Lists the files and directories in the current path.
    */
-   fun listDir(): String {
-     val code = CommandsManager.iListDir(path)
-     boardManager.writeInSilentMode(code, onResponse = { result ->
-       decodeFiles(result)
-       Log.i("Oi", result)
-     })
-     boardManager.writeCommand("""
-       import machine
-       machine.reset()
-     """.trimIndent())
-     Log.i("DIR", code)
-    return code
-   }
+  fun listDir(onResult: (String) -> Unit) {
+    val code = CommandsManager.iListDir(path)
+    boardManager.writeInSilentMode(code, onResponse = { result ->
+      decodeFiles(result)
+      Log.i("ExpoMicroIdeModule", decodeFiles(result).toString())
+      onResult(decodeFiles(result).toString())
+    })
+    boardManager.writeCommand("""
+      import machine
+      machine.reset()
+    """.trimIndent())
+  }
+
 
   /**
    * Removes the specified file or directory.
@@ -109,29 +110,59 @@ class FilesManager(
    *
    * @param json The JSON response from the board manager.
    */
-  private fun decodeFiles(json: String) {
-    val list = mutableListOf<MicroFile>()
-    val jsonFormated = json.replace("(", "[").replace(")", "]")
-    val items: JSONArray?
-    try {
-      items = JSONArray(jsonFormated)
-    } catch (e: Exception) {
-      e.printStackTrace()
-      return
-    }
-    for (i in 0 until items.length()) {
-      val item = items[i] as? JSONArray ?: continue
-      val length = item.length()
+  private fun decodeFiles(json: String): JSONArray {
+    val formattedJson = json.replace("(", "[").replace(")", "]")  // Corrige o formato
+    val items = JSONArray(formattedJson)
+    val fileList = JSONArray()
 
-      if (length >= 3) {
-        val name = (item[0] as? String).orEmpty()
-        val type = (item[1] as? Int) ?: 0x8000
-        val size = if (length == 4) ((item[3] as? Int) ?: 0)
-        else 0
-        list.add(MicroFile(name = name, path = this.path, type = type, size = size))
+    for (i in 0 until items.length()) {
+      val item = items.getJSONArray(i)
+      if (item.length() >= 3) {
+        val fileObject = JSONObject().apply {
+          put("name", item.getString(0))
+          put("type", item.getInt(1))
+          put("size", item.optInt(3, 0))
+        }
+        fileList.put(fileObject)
       }
     }
-    Log.i(TAG, list.toString())
-    onUpdateFiles?.invoke(list)
+
+    Log.i(TAG, fileList.toString())
+//    onUpdateFiles?.invoke(fileList.toKotlinList())
+    return fileList
   }
+
+  // Função de extensão para converter JSONArray em List<JSONObject>
+  private fun JSONArray.toKotlinList(): List<JSONObject> {
+    val list = mutableListOf<JSONObject>()
+    for (i in 0 until this.length()) {
+      list.add(this.getJSONObject(i))
+    }
+    return list
+  }
+//  private fun decodeFiles(json: String) {
+//    val list = mutableListOf<MicroFile>()
+//    val jsonFormated = json.replace("(", "[").replace(")", "]")
+//    val items: JSONArray?
+//    try {
+//      items = JSONArray(jsonFormated)
+//    } catch (e: Exception) {
+//      e.printStackTrace()
+//      return
+//    }
+//    for (i in 0 until items.length()) {
+//      val item = items[i] as? JSONArray ?: continue
+//      val length = item.length()
+//
+//      if (length >= 3) {
+//        val name = (item[0] as? String).orEmpty()
+//        val type = (item[1] as? Int) ?: 0x8000
+//        val size = if (length == 4) ((item[3] as? Int) ?: 0)
+//        else 0
+//        list.add(MicroFile(name = name, path = this.path, type = type, size = size))
+//      }
+//    }
+//    Log.i(TAG, list.toString())
+//    onUpdateFiles?.invoke(list)
+//  }
 }

@@ -1,4 +1,5 @@
 import ExpoMicroIdeModule from "./ExpoMicroIdeModule";
+import { Files } from "./ExpoMicroIdeModule.types";
 
 export interface MicroFile {
   name: string;
@@ -11,8 +12,9 @@ async function initialize(): Promise<string | Error> {
   return ExpoMicroIdeModule.initialize();
 }
 
-async function list(): Promise<string | Error> {
-  return ExpoMicroIdeModule.listFiles();
+async function list(): Promise<Files[]> {
+  const response = await ExpoMicroIdeModule.listFiles();
+  return JSON.parse(response)
 }
 
 function hello(): string {
@@ -46,5 +48,6 @@ const files = {
 export {
   files,
   hello,
-  initialize
+  initialize,
+  type Files
 }

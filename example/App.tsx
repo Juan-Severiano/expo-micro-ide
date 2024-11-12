@@ -6,7 +6,7 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [fileName, setFileName] = useState("");
   const [content, setContent] = useState("");
-  const [files, setFiles] = useState<{ [key: string]: string }>({});
+  const [files, setFiles] = useState<ExpoMicroIde.Files[]>([]);
 
   async function connect() {
     try {
@@ -26,10 +26,11 @@ export default function App() {
       console.log("Clicou em listar arquivos");
       const res = await ExpoMicroIde.files.list();
       console.log(res);
-      if (Object.keys(files).length > 0) {
-        setStatus("Arquivos: " + JSON.stringify(Object.keys(files)));
+      if (res.length > 0) {
+        setStatus("Your files")
+        setFiles(res)
       } else {
-        setStatus("Nenhum arquivo encontrado");
+        setStatus("Nenhum arquivo encontrado" + res);
       }
     } catch (error) {
       console.log(error);
@@ -43,49 +44,40 @@ export default function App() {
       setStatus("Nome do arquivo é necessário");
       return;
     }
-    setFiles(prevFiles => ({
-      ...prevFiles,
-      [fileName]: "",
-    }));
     await ExpoMicroIde.files.create(fileName)
+    await list()
     setStatus(`Arquivo '${fileName}' criado`);
   }
 
   async function deleteFile() {
-    if (!fileName) {
-      setStatus("Nome do arquivo é necessário para deletar");
-      return;
-    }
-    setFiles(prevFiles => {
-      const updatedFiles = { ...prevFiles };
-      if (fileName in updatedFiles) {
-        delete updatedFiles[fileName];
-        setStatus(`Arquivo '${fileName}' deletado`);
-      } else {
-        setStatus("Arquivo não encontrado");
-      }
-      return updatedFiles;
-    });
+    // setFiles(prevFiles => {
+    //   const updatedFiles = { ...prevFiles };
+    //   if (fileName in updatedFiles) {
+    //     delete updatedFiles[fileName];
+    //     setStatus(`Arquivo '${fileName}' deletado`);
+    //   } else {
+    //     setStatus("Arquivo não encontrado");
+    //   }
+    //   return updatedFiles;
+    // });
     await ExpoMicroIde.files.remove("asd.py")
+    await list()
   }
 
   async function renameFile(newName: string) {
-    if (!fileName || !newName) {
-      setStatus("Nome do arquivo atual e novo nome são necessários para renomear");
-      return;
-    }
-    setFiles(prevFiles => {
-      const updatedFiles = { ...prevFiles };
-      if (fileName in updatedFiles) {
-        updatedFiles[newName] = updatedFiles[fileName];
-        delete updatedFiles[fileName];
-        setStatus(`Arquivo '${fileName}' renomeado para '${newName}'`);
-      } else {
-        setStatus("Arquivo não encontrado");
-      }
-      return updatedFiles;
-    });
+    // setFiles(prevFiles => {
+    //   const updatedFiles = { ...prevFiles };
+    //   if (fileName in updatedFiles) {
+    //     updatedFiles[newName] = updatedFiles[fileName];
+    //     delete updatedFiles[fileName];
+    //     setStatus(`Arquivo '${fileName}' renomeado para '${newName}'`);
+    //   } else {
+    //     setStatus("Arquivo não encontrado");
+    //   }
+    //   return updatedFiles;
+    // });
     await ExpoMicroIde.files.rename("q.py", "juan.py")
+    await list()
   }
 
   async function readFile() {
@@ -93,14 +85,14 @@ export default function App() {
       setStatus("Nome do arquivo é necessário para leitura");
       return;
     }
-    const fileContent = files[fileName];
-    if (fileContent !== undefined) {
-      setContent(fileContent);
-      setStatus(`Conteúdo do arquivo '${fileName}': ${fileContent}`);
-    } else {
-      setStatus("Arquivo não encontrado");
-    }
-    const cont = await ExpoMicroIde.files.read("/main.py")
+    // const fileContent = files[fileName];
+    // if (fileContent !== undefined) {
+    //   setContent(fileContent);
+    //   setStatus(`Conteúdo do arquivo '${fileName}': ${fileContent}`);
+    // } else {
+    //   setStatus("Arquivo não encontrado");
+    // }
+    const cont = await ExpoMicroIde.files.read(`/${fileName}`)
     if (typeof cont === "string") {
       setContent(cont)
     }
@@ -111,10 +103,11 @@ export default function App() {
       setStatus("Nome do arquivo é necessário para escrita");
       return;
     }
-    setFiles(prevFiles => ({
-      ...prevFiles,
-      [fileName]: content,
-    }));
+    try {
+      ExpoMicroIde.files.write(`/${fileName}`, "print('hello world')")
+    } catch(err) {
+      
+    }
     setStatus(`Conteúdo escrito no arquivo '${fileName}'`);
   }
 
@@ -140,6 +133,13 @@ export default function App() {
       <Button title="Renomear Arquivo" onPress={() => renameFile("novoNome")} />
       <Button title="Ler Arquivo" onPress={readFile} />
       <Button title="Escrever no Arquivo" onPress={writeFile} />
+      {
+        files.length > 0 && (
+          files.map(file => (
+            <Text>{file.name}</Text>
+          ))
+        )
+      }
     </View>
   );
 }

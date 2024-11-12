@@ -40,8 +40,10 @@ class ExpoMicroIdeModule : Module() {
     AsyncFunction("listFiles") { promise: Promise ->
       try {
         if (::filesManager.isInitialized) {
-          filesManager.listDir()
-          promise.resolve("Arquivos listados com sucesso")
+          filesManager.listDir { files ->
+            Log.i("ExpoMicroIdeModule", "os arquivos $files")
+            promise.resolve(files)
+          }
         } else {
           promise.reject("FILES_MANAGER_NOT_INITIALIZED", "FilesManager não inicializado", null)
         }
