@@ -66,6 +66,8 @@ dependencies {
     implementation libs.material
     implementation libs.gson
     coreLibraryDesugaring libs.desugar.jdk.libs
+  
+    implementation 'androidx.appcompat:appcompat:1.7.0'
 
     // Navigation Components
     implementation libs.androidx.navigation.fragment.ktx

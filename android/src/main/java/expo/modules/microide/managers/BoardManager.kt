@@ -55,6 +55,7 @@ class BoardManager(
     private const val ACTION_USB_PERMISSION = "USB_PERMISSION"
     private const val WRITING_TIMEOUT = 5000
   }
+  var currentDevice: UsbDevice? = null
 
   private val activity = context as AppCompatActivity
 
@@ -195,6 +196,14 @@ class BoardManager(
     usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     val deviceList = usbManager.deviceList
 
+    // Verificar se já existe um dispositivo conectado
+    if (currentDevice != null) {
+      // Já temos um dispositivo conectado, então conecte a ele
+      approveDevice(currentDevice!!)
+      return
+    }
+
+    // Se não houver um dispositivo conectado, procurar por novos dispositivos
     val supportedDevice: UsbDevice? = deviceList.values.filter {
       supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
     }.getOrNull(0)
@@ -206,11 +215,19 @@ class BoardManager(
       ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
     ) else throwError(ConnectionError.NO_DEVICES)
   }
-  
+
+
   fun getUsbConnected() {
     usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     val deviceList = usbManager.deviceList
 
+    // Verificar se já existe um dispositivo conectado
+    if (currentDevice != null) {
+      // Já temos um dispositivo conectado, então conecte a ele
+      approveDevice(currentDevice!!)
+      return
+    }
+
     val supportedDevice: UsbDevice? = deviceList.values.filter {
       supportedManufacturers.contains(it.manufacturerName) || supportedProducts.contains(it.productId)
     }.getOrNull(0)
@@ -223,17 +240,20 @@ class BoardManager(
     ) else throwError(ConnectionError.NO_DEVICES)
   }
 
-  fun approveDevice(usbDevice: UsbDevice) {
+  private fun approveDevice(usbDevice: UsbDevice) {
     Log.i(TAG, "supportedDevice - $usbDevice")
+    currentDevice = usbDevice
     if (usbManager.hasPermission(usbDevice)) connectToSerial(usbDevice)
     else requestUsbPermission(usbDevice)
   }
+
 
   fun onDenyDevice() {
     throwError(error = ConnectionError.NOT_SUPPORTED)
   }
 
   fun onDisconnectDevice() {
+    currentDevice = null
     throwError(error = ConnectionError.CONNECTION_LOST)
   }
 

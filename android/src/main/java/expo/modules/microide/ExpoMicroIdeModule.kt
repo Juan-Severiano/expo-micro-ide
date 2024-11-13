@@ -1,6 +1,5 @@
 package expo.modules.microide
 
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -9,6 +8,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.microide.managers.BoardManager
 import expo.modules.microide.managers.FilesManager
+import expo.modules.microide.managers.TerminalManager
 import expo.modules.microide.utils.ConnectionError
 import expo.modules.microide.utils.ConnectionStatus
 import expo.modules.microide.utils.MicroFile
@@ -18,6 +18,7 @@ class ExpoMicroIdeModule : Module() {
 
   private lateinit var boardManager: BoardManager
   private lateinit var filesManager: FilesManager
+  private lateinit var terminalManager: TerminalManager
 
   override fun definition() = ModuleDefinition {
     Name("ExpoMicroIde")
@@ -128,6 +129,47 @@ class ExpoMicroIdeModule : Module() {
         promise.reject("WRITE_FILE_ERROR", e.message, null)
       }
     }
+
+    AsyncFunction("pauseScript") { promise: Promise ->
+      try {
+        terminalManager.terminateExecution {
+          promise.resolve("Execução do script pausada com sucesso")
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao pausar o script: ${e.message}")
+        promise.reject("PAUSE_SCRIPT_ERROR", e.message, null)
+      }
+    }
+
+    // Função para resetar o script
+    AsyncFunction("resetScript") { promise: Promise ->
+      try {
+        val microDevice = boardManager.currentDevice?.toMicroDevice()
+        if (microDevice != null) {
+          terminalManager.resetDevice(microDevice) {
+            promise.resolve("Script resetado com sucesso")
+          }
+        } else {
+          promise.reject("RESET_SCRIPT_ERROR", "Dispositivo não encontrado", null)
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao resetar o script: ${e.message}")
+        promise.reject("RESET_SCRIPT_ERROR", e.message, null)
+      }
+    }
+
+    // Função para executar o script (main.py)
+    AsyncFunction("executeScript") { promise: Promise ->
+      try {
+        val code = "import main" // Código para rodar o main.py
+        terminalManager.executeScript(code) {
+          promise.resolve("Script executado com sucesso")
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao executar o script: ${e.message}")
+        promise.reject("EXECUTE_SCRIPT_ERROR", e.message, null)
+      }
+    }
   }
 
   private fun initializeBoardManager(promise: Promise) {
@@ -172,6 +214,7 @@ class ExpoMicroIdeModule : Module() {
           Log.i("ExpoMicroIdeModule", "Dados recebidos: $data")
         }
       )
+      terminalManager = TerminalManager(boardManager)
       boardManager.detectUsbDevices()
     }
   }
