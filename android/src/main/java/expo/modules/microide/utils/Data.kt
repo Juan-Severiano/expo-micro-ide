@@ -1,10 +1,3 @@
-/*
- * Created by Mahmoud Aly - engma7moud3ly@gmail.com
- * Project Micro REPL - https://github.com/Ma7moud3ly/micro-repl
- * Copyright (c) 2023 . MIT license.
- *
- */
-
 package expo.modules.microide.utils
 
 import android.hardware.usb.UsbDevice

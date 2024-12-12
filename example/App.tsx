@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: "#fff",
+    gap: 2
   },
   input: {
     width: "100%",

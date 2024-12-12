@@ -31,7 +31,6 @@ class ExpoMicroIdeModule : Module() {
       try {
         Log.i("ExpoMicroIdeModule", "Iniciando conexão com a placa...")
         initializeBoardManager(promise)
-//        promise.resolve(devices)
       } catch (e: Exception) {
         Log.e("ExpoMicroIdeModule", "Erro ao iniciar: ${e.message}")
         promise.reject("INITIALIZE_ERROR", e.message, null)
@@ -140,8 +139,7 @@ class ExpoMicroIdeModule : Module() {
         promise.reject("PAUSE_SCRIPT_ERROR", e.message, null)
       }
     }
-
-    // Função para resetar o script
+    
     AsyncFunction("resetScript") { promise: Promise ->
       try {
         val microDevice = boardManager.currentDevice?.toMicroDevice()
@@ -157,11 +155,10 @@ class ExpoMicroIdeModule : Module() {
         promise.reject("RESET_SCRIPT_ERROR", e.message, null)
       }
     }
-
-    // Função para executar o script (main.py)
+    
     AsyncFunction("executeScript") { promise: Promise ->
       try {
-        val code = "import main" // Código para rodar o main.py
+        val code = "import main"
         terminalManager.executeScript(code) {
           promise.resolve("Script executado com sucesso")
         }
