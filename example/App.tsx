@@ -1,29 +1,40 @@
-import * as ExpoMicroIde from "expo-micro-ide";
+import {
+  board as appBoard,
+  MicroFile,
+  files as appFiles,
+} from "expo-micro-ide";
 import React, { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View, FlatList } from "react-native";
+import {
+  Button,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  FlatList,
+} from "react-native";
 
 export default function App() {
-  const [board, setBoard] = useState("")
+  const [board, setBoard] = useState("");
   const [status, setStatus] = useState("");
   const [fileName, setFileName] = useState("");
   const [content, setContent] = useState("");
-  const [files, setFiles] = useState<ExpoMicroIde.MicroFile[]>([]);
+  const [files, setFiles] = useState<MicroFile[]>([]);
 
   async function connect() {
     try {
-      const res = await ExpoMicroIde.initialize();
+      const res = await appBoard.initialize();
       setStatus(`Conectado: ${res}`);
-      setBoard(res)
-      await list()
+      setBoard(res);
+      await list();
     } catch (error) {
       // @ts-ignore
       setStatus(`Erro: ${error?.message}`);
     }
   }
-  
+
   async function list() {
     try {
-      const fileList = await ExpoMicroIde.files.list();
+      const fileList = await appFiles.list();
       setFiles(fileList);
       setStatus(`Arquivos listados: ${fileList.length}`);
     } catch (error) {
@@ -34,54 +45,54 @@ export default function App() {
 
   async function createFile() {
     if (!fileName) return setStatus("Nome do arquivo é necessário");
-    await ExpoMicroIde.files.create(fileName);
+    await appFiles.create(fileName);
     await list();
     setStatus(`Arquivo '${fileName}' criado`);
-    clearFields()
+    clearFields();
   }
 
   async function deleteFile() {
-    if (!fileName) return setStatus("Nome do arquivo é necessário para deletar");
-    await ExpoMicroIde.files.remove(fileName);
+    if (!fileName)
+      return setStatus("Nome do arquivo é necessário para deletar");
+    await appFiles.remove(fileName);
     await list();
     setStatus(`Arquivo '${fileName}' deletado`);
-    clearFields()
+    clearFields();
   }
 
   async function renameFile(newName: string) {
-    if (!fileName) return setStatus("Nome do arquivo é necessário para renomear");
-    await ExpoMicroIde.files.rename(fileName, newName);
+    if (!fileName)
+      return setStatus("Nome do arquivo é necessário para renomear");
+    await appFiles.rename(fileName, newName);
     await list();
     setStatus(`Arquivo '${fileName}' renomeado para '${newName}'`);
-    clearFields()
+    clearFields();
   }
 
   async function readFile() {
-    if (!fileName) return setStatus("Nome do arquivo é necessário para leitura");
-    const content = await ExpoMicroIde.files.read(fileName);
+    if (!fileName)
+      return setStatus("Nome do arquivo é necessário para leitura");
+    const content = await appFiles.read(fileName);
     setContent(content);
     setStatus(`Conteúdo do arquivo '${fileName}' lido`);
   }
 
   async function writeFile() {
-    if (!fileName) return setStatus("Nome do arquivo é necessário para escrita");
-    await ExpoMicroIde.files.write(fileName, content);
+    if (!fileName)
+      return setStatus("Nome do arquivo é necessário para escrita");
+    await appFiles.write(fileName, content);
     setStatus(`Conteúdo escrito no arquivo '${fileName}'`);
-    clearFields()
+    clearFields();
   }
 
   function clearFields() {
-    setContent("")
-    setFileName("")
+    setContent("");
+    setFileName("");
   }
 
   return (
     <View style={styles.container}>
-      {
-        board && (
-          <Text>Conectado a {board}</Text>
-        )
-      }
+      {board && <Text>Conectado a {board}</Text>}
       <Text>{status}</Text>
       <Button title="Detectar Dispositivo" onPress={connect} />
       <TextInput
@@ -100,12 +111,21 @@ export default function App() {
       <Button title="Listar files" onPress={list} />
       <Button title="Criar Arquivo" onPress={createFile} />
       <Button title="Deletar Arquivo" onPress={deleteFile} />
-      <Button title="Renomear Arquivo" onPress={() => renameFile("novoNome.txt")} />
+      <Button
+        title="Renomear Arquivo"
+        onPress={() => renameFile("novoNome.txt")}
+      />
       <Button title="Ler Arquivo" onPress={readFile} />
       <Button title="Escrever no Arquivo" onPress={writeFile} />
 
-
-      <Button title="EXCECUTA CARALHO" onPress={ExpoMicroIde.board.run} />
+      <Button
+        title="EXCECUTA CARALHO"
+        onPress={async () => {
+          readFile();
+          const res = await appBoard.run();
+          console.log(res);
+        }}
+      />
 
       <Text>Arquivos:</Text>
       <FlatList
@@ -113,7 +133,9 @@ export default function App() {
         keyExtractor={(item) => item.name}
         renderItem={({ item }) => (
           <View>
-            <Text>{item.name} - {item.size} bytes</Text>
+            <Text>
+              {item.name} - {item.size} bytes
+            </Text>
           </View>
         )}
       />
@@ -126,7 +148,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: "#fff",
-    gap: 2
+    gap: 2,
   },
   input: {
     width: "100%",
