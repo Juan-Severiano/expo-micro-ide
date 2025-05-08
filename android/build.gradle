@@ -54,6 +54,11 @@ android {
   composeOptions {
     kotlinCompilerExtensionVersion "1.5.4"
   }
+  packagingOptions {
+    resources {
+      excludes += '/META-INF/{AL2.0,LGPL2.1}'
+    }
+  }
 }
 
 repositories {
@@ -63,17 +68,23 @@ repositories {
 }
 
 dependencies {
-    implementation "androidx.core:core-ktx:1.12.0"
-    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
+    def core_version = "1.12.0"
+    def lifecycle_version = "2.7.0"
+    def compose_version = "1.5.4"
+    def compose_bom = "2024.02.00"
+    def nav_version = "2.7.7"
+
+    implementation "androidx.core:core-ktx:$core_version"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
     implementation "androidx.appcompat:appcompat:1.6.1"
     implementation "androidx.fragment:fragment-ktx:1.6.2"
     implementation "com.google.android.material:material:1.11.0"
     implementation "com.google.code.gson:gson:2.10.1"
-    coreLibraryDesugaring libs.desugar.jdk.libs
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
   
     // Navigation Components
-    implementation "androidx.navigation:navigation-fragment-ktx:2.7.7"
-    implementation "androidx.navigation:navigation-ui-ktx:2.7.7"
+    implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
+    implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
 
     // Comunicação serial (USB Serial for Android)
     implementation 'com.github.mik3y:usb-serial-for-android:3.3.0'
@@ -85,8 +96,7 @@ dependencies {
 //    implementation libs.language.textmate
 
     // Compose dependencies
-    def compose_version = "1.5.4"
-    implementation platform("androidx.compose:compose-bom:2024.02.00")
+    implementation platform("androidx.compose:compose-bom:$compose_bom")
     androidTestImplementation platform(libs.androidx.compose.bom)
     implementation "androidx.compose.ui:ui"
     implementation "androidx.compose.material3:material3"
