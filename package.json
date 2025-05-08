@@ -1,7 +1,7 @@
 {
   "name": "expo-micro-ide",
-  "version": "1.0.3",
-  "description": "A native module to make tha comunication between a RasberriPy Board and an Android Application ",
+  "version": "1.1.0",
+  "description": "A clean and type-safe Expo native module for interacting with microcontroller boards in React Native applications",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
