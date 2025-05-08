@@ -177,11 +177,11 @@ Example error handling:
 ```typescript
 try {
   await board.initialize();
-} catch (error) {
+    } catch (error) {
   if (error.code === ErrorType.CONNECTION_ERROR) {
     console.error('Connection failed:', error.message);
+    }
   }
-}
 ```
 
 ## Best Practices

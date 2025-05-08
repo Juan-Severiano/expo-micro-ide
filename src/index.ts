@@ -9,28 +9,28 @@ import ExpoMicroIdeModule from './ExpoMicroIdeModule';
 class FileSystem implements IFileSystem {
   async list(path?: string): Promise<MicroFile[]> {
     const response = await ExpoMicroIdeModule.listFiles(path);
-    return JSON.parse(response) as MicroFile[];
-  }
+  return JSON.parse(response) as MicroFile[];
+}
 
   async create(name: string, path?: string): Promise<string> {
     return ExpoMicroIdeModule.createFile(name, path);
-  }
+}
 
   async remove(fileName: string, path?: string): Promise<string> {
     return ExpoMicroIdeModule.deleteFile(fileName, path);
-  }
+}
 
   async rename(oldName: string, newName: string, path?: string): Promise<string> {
     return ExpoMicroIdeModule.renameFile(oldName, newName, path);
-  }
+}
 
   async read(path: string): Promise<string> {
-    return ExpoMicroIdeModule.readFile(path);
-  }
+  return ExpoMicroIdeModule.readFile(path);
+}
 
   async write(path: string, content: string): Promise<string> {
-    return ExpoMicroIdeModule.writeFile(path, content);
-  }
+  return ExpoMicroIdeModule.writeFile(path, content);
+}
 }
 
 /**
@@ -73,7 +73,7 @@ class Board implements IBoard {
       this.setBoardStatus(BoardStatus.ERROR);
       throw error;
     }
-  }
+}
 
   async pause(): Promise<string> {
     try {
