@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
 
 group = 'expo.modules.settings'
 version = '0.1.0'
@@ -47,8 +48,11 @@ android {
   lintOptions {
     abortOnError false
   }
+  buildFeatures {
+    compose true
+  }
   composeOptions {
-        kotlinCompilerExtensionVersion = libs.composeCompiler.get().version
+    kotlinCompilerExtensionVersion "1.5.4"
   }
 }
 
@@ -59,20 +63,17 @@ repositories {
 }
 
 dependencies {
-    implementation libs.androidx.core.ktx
-    implementation libs.androidx.lifecycle.runtime.ktx
-    implementation libs.androidx.appcompat
-    implementation libs.androidx.fragment.ktx
-    implementation libs.material
-    implementation libs.gson
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "androidx.fragment:fragment-ktx:1.6.2"
+    implementation "com.google.android.material:material:1.11.0"
+    implementation "com.google.code.gson:gson:2.10.1"
     coreLibraryDesugaring libs.desugar.jdk.libs
   
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-
     // Navigation Components
-    implementation libs.androidx.navigation.fragment.ktx
-    implementation libs.androidx.navigation.ui.ktx
-
+    implementation "androidx.navigation:navigation-fragment-ktx:2.7.7"
+    implementation "androidx.navigation:navigation-ui-ktx:2.7.7"
 
     // Comunicação serial (USB Serial for Android)
     implementation 'com.github.mik3y:usb-serial-for-android:3.3.0'
@@ -84,11 +85,12 @@ dependencies {
 //    implementation libs.language.textmate
 
     // Compose dependencies
-    implementation platform(libs.androidx.compose.bom)
+    def compose_version = "1.5.4"
+    implementation platform("androidx.compose:compose-bom:2024.02.00")
     androidTestImplementation platform(libs.androidx.compose.bom)
-    implementation libs.androidx.activity.compose
-    implementation libs.androidx.ui
-    implementation libs.androidx.ui.tooling.preview
-    debugImplementation libs.androidx.ui.tooling
-    implementation libs.androidx.material3
+    implementation "androidx.compose.ui:ui"
+    implementation "androidx.compose.material3:material3"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+    implementation "androidx.activity:activity-compose:1.8.2"
 }
