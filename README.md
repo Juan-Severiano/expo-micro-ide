@@ -1,203 +1,226 @@
 # ExpoMicroIde
 
-ExpoMicroIde is a npm module that provides a set of functions for interacting with microcontroller boards in Expo projects. It allows you to initialize connections, manage files, and perform various operations on the connected device.
+A powerful Expo native module for interacting with microcontroller boards in React Native applications. This module provides a clean and type-safe interface for file system operations and board control.
 
-## Table of Contents
+## Features
 
-- [ExpoMicroIde](#expomicroide)
-  - [Table of Contents](#table-of-contents)
-  - [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [How it Works](#how-it-works)
-  - [API Reference](#api-reference)
-    - [Types](#types)
-    - [Functions](#functions)
-  - [Usage Examples](#usage-examples)
-
-## Getting Started
-
-ExpoMicroIde is designed to work with Expo projects and provides a bridge between your React Native application and microcontroller boards. It offers functions for file management, device initialization, and basic operations.
+- 🔌 Easy board connection and initialization
+- 📁 Complete file system operations (read, write, list, create, delete, rename)
+- ⚡ Script execution and control (run, pause, reset)
+- 📊 Real-time status monitoring
+- 🔒 Type-safe API with TypeScript support
+- 🎯 Clean architecture design
 
 ## Installation
 
-To install ExpoMicroIde in your Expo project, run the following command:
-
 ```bash
 npm install expo-micro-ide
-```
-
-or if you're using yarn:
-
-```bash
+# or
 yarn add expo-micro-ide
 ```
 
-## How it Works
+## Quick Start
 
-ExpoMicroIde uses a native module (ExpoMicroIdeModule) to communicate with the microcontroller board. It provides a JavaScript interface to interact with the native functionality. The module handles USB device detection, file operations, and data transfer between your Expo app and the connected board.
+```typescript
+import { board, files } from 'expo-micro-ide';
+
+// Initialize connection
+await board.initialize();
+
+// List files in root directory
+const fileList = await files.list('/');
+
+// Create and write to a file
+await files.create('main.py');
+await files.write('/main.py', 'print("Hello from MicroPython!")');
+
+// Execute the script
+await board.run();
+
+// Monitor board status
+board.onStatusChange((status) => {
+  console.log('Board status:', status);
+});
+```
 
 ## API Reference
+
+### File System Operations
+
+The `files` object provides the following methods:
+
+#### `list(path?: string): Promise<MicroFile[]>`
+Lists files in the specified directory.
+- `path`: Optional directory path (defaults to root)
+- Returns: Array of MicroFile objects
+
+#### `create(name: string, path?: string): Promise<string>`
+Creates a new file.
+- `name`: Name of the file to create
+- `path`: Optional directory path
+- Returns: Success message
+
+#### `remove(fileName: string, path?: string): Promise<string>`
+Deletes a file.
+- `fileName`: Name of the file to delete
+- `path`: Optional directory path
+- Returns: Success message
+
+#### `rename(oldName: string, newName: string, path?: string): Promise<string>`
+Renames a file.
+- `oldName`: Current file name
+- `newName`: New file name
+- `path`: Optional directory path
+- Returns: Success message
+
+#### `read(path: string): Promise<string>`
+Reads file contents.
+- `path`: Full path to the file
+- Returns: File contents as string
+
+#### `write(path: string, content: string): Promise<string>`
+Writes content to a file.
+- `path`: Full path to the file
+- `content`: Content to write
+- Returns: Success message
+
+### Board Control
+
+The `board` object provides the following methods:
+
+#### `initialize(): Promise<string>`
+Initializes connection with the board.
+- Returns: Board identification string
+
+#### `run(script?: string): Promise<string>`
+Executes a Python script.
+- `script`: Optional script content (defaults to main.py)
+- Returns: Execution result
+
+#### `pause(): Promise<string>`
+Pauses current script execution.
+- Returns: Success message
+
+#### `reset(): Promise<string>`
+Resets the board.
+- Returns: Success message
+
+#### `getLastOutput(): string`
+Gets the last execution output.
+- Returns: Last output or error message
+
+#### `getConnectionStatus(): ConnectionStatus`
+Gets current connection status.
+- Returns: ConnectionStatus enum value
+
+#### `getBoardStatus(): BoardStatus`
+Gets current board execution status.
+- Returns: BoardStatus enum value
+
+### Event Listeners
+
+#### `board.onStatusChange(callback: (status: BoardStatus) => void): () => void`
+Subscribe to board status changes.
+- Returns: Unsubscribe function
+
+#### `board.onConnectionChange(callback: (status: ConnectionStatus) => void): () => void`
+Subscribe to connection status changes.
+- Returns: Unsubscribe function
 
 ### Types
 
 ```typescript
+enum BoardStatus {
+  RUNNING = "Running",
+  PAUSED = "Paused",
+  STOPPED = "Stopped",
+  ERROR = "Error"
+}
+
+enum ConnectionStatus {
+  CONNECTED = "Connected",
+  CONNECTING = "Connecting",
+  ERROR = "Error",
+  DISCONNECTED = "Disconnected"
+}
+
 interface MicroFile {
   name: string;
   path: string;
-  isFile: boolean;
-  size?: number;
+  size: number;
+  type: FileType;
+  modifiedAt?: Date;
+}
+
+enum FileType {
+  FILE = 0,
+  DIRECTORY = 1
 }
 ```
 
-### Functions
+## Error Handling
 
-1. `initialize(): Promise<string | Error>`
-   - Initializes the connection with the microcontroller board.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-2. `files.list(): Promise<string | Error>`
-   - Lists all files on the connected device.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-3. `hello(): string`
-   - A simple function that returns a greeting message.
-   - Returns: "Hello world Kotlin + Expo Modules! 👋"
-
-4. `files.create(name: string): Promise<string | Error>`
-   - Creates a new file with the given name.
-   - Parameters:
-     - `name`: The name of the file to create.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-5. `files.remove(fileName: string): Promise<string | Error>`
-   - Deletes the specified file.
-   - Parameters:
-     - `fileName`: The name of the file to delete.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-6. `files.rename(oldName: string, newName: string): Promise<string | Error>`
-   - Renames a file.
-   - Parameters:
-     - `oldName`: The current name of the file.
-     - `newName`: The new name for the file.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-7. `files.read(path: string): Promise<string | Error>`
-   - Reads the content of a file.
-   - Parameters:
-     - `path`: The path of the file to read.
-   - Returns a promise that resolves to the file content or rejects with an error.
-
-8. `files.write(path: string, content: string): Promise<string | Error>`
-   - Writes content to a file.
-   - Parameters:
-     - `path`: The path of the file to write to.
-     - `content`: The content to write to the file.
-   - Returns a promise that resolves to a success message or rejects with an error.
-
-## Usage Examples
-
-Here's an example of how to use ExpoMicroIde in your Expo project:
+The module uses a consistent error handling approach. All async operations may throw errors with the following types:
 
 ```typescript
-import * as ExpoMicroIde from "expo-micro-ide";
-import React, { useState } from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
-
-export default function App() {
-  const [status, setStatus] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [content, setContent] = useState("");
-
-  async function connect() {
-    try {
-      const res = await ExpoMicroIde.initialize();
-      setStatus(res as string);
-    } catch (error) {
-      setStatus(`Error connecting: \${error.message}`);
-    }
-  }
-
-  async function listFiles() {
-    try {
-      const res = await ExpoMicroIde.files.list();
-      setStatus(`Files: \${res}`);
-    } catch (error) {
-      setStatus(`Error listing files: \${error.message}`);
-    }
-  }
-
-  async function createFile() {
-    if (!fileName) {
-      setStatus("File name is required");
-      return;
-    }
-    try {
-      await ExpoMicroIde.files.create(fileName);
-      setStatus(`File '\${fileName}' created`);
-    } catch (error) {
-      setStatus(`Error creating file: \${error.message}`);
-    }
-  }
-
-  async function readFile() {
-    if (!fileName) {
-      setStatus("File name is required for reading");
-      return;
-    }
-    try {
-      const content = await ExpoMicroIde.files.read(fileName);
-      setContent(content as string);
-      setStatus(`Content of '\${fileName}': \${content}`);
-    } catch (error) {
-      setStatus(`Error reading file: \${error.message}`);
-    }
-  }
-
-  async function writeFile() {
-    if (!fileName) {
-      setStatus("File name is required for writing");
-      return;
-    }
-    try {
-      await ExpoMicroIde.files.write(fileName, content);
-      setStatus(`Content written to '\${fileName}'`);
-    } catch (error) {
-      setStatus(`Error writing to file: \${error.message}`);
-    }
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text>Status: {status}</Text>
-      <Button title="Connect" onPress={connect} />
-      <Button title="List Files" onPress={listFiles} />
-      <TextInput
-        value={fileName}
-        onChangeText={setFileName}
-        placeholder="File name"
-      />
-      <TextInput
-        value={content}
-        onChangeText={setContent}
-        placeholder="File content"
-      />
-      <Button title="Create File" onPress={createFile} />
-      <Button title="Read File" onPress={readFile} />
-      <Button title="Write to File" onPress={writeFile} />
-    </View>
-  );
+enum ErrorType {
+  CONNECTION_ERROR = "CONNECTION_ERROR",
+  FILE_SYSTEM_ERROR = "FILE_SYSTEM_ERROR",
+  EXECUTION_ERROR = "EXECUTION_ERROR",
+  PERMISSION_ERROR = "PERMISSION_ERROR",
+  DEVICE_ERROR = "DEVICE_ERROR"
 }
+```
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+Example error handling:
+
+```typescript
+try {
+  await board.initialize();
+} catch (error) {
+  if (error.code === ErrorType.CONNECTION_ERROR) {
+    console.error('Connection failed:', error.message);
+  }
+}
+```
+
+## Best Practices
+
+1. Always initialize the board before performing any operations:
+```typescript
+await board.initialize();
+```
+
+2. Use the event listeners to monitor status changes:
+```typescript
+board.onStatusChange((status) => {
+  if (status === BoardStatus.ERROR) {
+    // Handle error state
+  }
 });
 ```
 
-This example demonstrates how to use the main functions of ExpoMicroIde, including connecting to a device, listing files, creating, reading, and writing files.
+3. Clean up resources when done:
+```typescript
+const unsubscribe = board.onStatusChange(callback);
+// Later...
+unsubscribe();
+```
 
-Remember to handle errors appropriately in your application, as shown in the example above.
+4. Handle errors appropriately:
+```typescript
+try {
+  await files.write('/main.py', code);
+  await board.run();
+} catch (error) {
+  console.error('Operation failed:', error);
+}
+```
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to our GitHub repository.
+
+## License
+
+MIT License - see the LICENSE file for details.

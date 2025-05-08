@@ -1,72 +1,146 @@
-import ExpoMicroIdeModule from "./ExpoMicroIdeModule";
-import { Files } from "./ExpoMicroIdeModule.types";
+import { IBoard } from './domain/interfaces/IBoard';
+import { IFileSystem } from './domain/interfaces/IFileSystem';
+import { BoardStatus, ConnectionStatus, ErrorType, FileType, MicroFile } from './domain/models/MicroFile';
+import ExpoMicroIdeModule from './ExpoMicroIdeModule';
 
-export interface MicroFile {
-  name: string;
-  type: number;
-  size: number;
-  path: string;
+/**
+ * Implementation of the file system interface
+ */
+class FileSystem implements IFileSystem {
+  async list(path?: string): Promise<MicroFile[]> {
+    const response = await ExpoMicroIdeModule.listFiles(path);
+    return JSON.parse(response) as MicroFile[];
+  }
+
+  async create(name: string, path?: string): Promise<string> {
+    return ExpoMicroIdeModule.createFile(name, path);
+  }
+
+  async remove(fileName: string, path?: string): Promise<string> {
+    return ExpoMicroIdeModule.deleteFile(fileName, path);
+  }
+
+  async rename(oldName: string, newName: string, path?: string): Promise<string> {
+    return ExpoMicroIdeModule.renameFile(oldName, newName, path);
+  }
+
+  async read(path: string): Promise<string> {
+    return ExpoMicroIdeModule.readFile(path);
+  }
+
+  async write(path: string, content: string): Promise<string> {
+    return ExpoMicroIdeModule.writeFile(path, content);
+  }
 }
 
-async function initialize(): Promise<string> {
-  return ExpoMicroIdeModule.initialize();
+/**
+ * Implementation of the board interface
+ */
+class Board implements IBoard {
+  private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
+  private boardStatus: BoardStatus = BoardStatus.STOPPED;
+  private lastOutput: string = '';
+  private statusListeners: ((status: BoardStatus) => void)[] = [];
+  private connectionListeners: ((status: ConnectionStatus) => void)[] = [];
+
+  async initialize(): Promise<string> {
+    try {
+      this.setConnectionStatus(ConnectionStatus.CONNECTING);
+      const result = await ExpoMicroIdeModule.initialize();
+      this.setConnectionStatus(ConnectionStatus.CONNECTED);
+      return result;
+    } catch (error) {
+      this.setConnectionStatus(ConnectionStatus.ERROR);
+      throw error;
+    }
+  }
+
+  getConnectionStatus(): ConnectionStatus {
+    return this.connectionStatus;
+  }
+
+  getBoardStatus(): BoardStatus {
+    return this.boardStatus;
+  }
+
+  async run(script?: string): Promise<string> {
+    try {
+      this.setBoardStatus(BoardStatus.RUNNING);
+      const result = await ExpoMicroIdeModule.executeScript(script);
+      this.lastOutput = result;
+      return result;
+    } catch (error) {
+      this.setBoardStatus(BoardStatus.ERROR);
+      throw error;
+    }
+  }
+
+  async pause(): Promise<string> {
+    try {
+      const result = await ExpoMicroIdeModule.pauseScript();
+      this.setBoardStatus(BoardStatus.PAUSED);
+      return result;
+    } catch (error) {
+      this.setBoardStatus(BoardStatus.ERROR);
+      throw error;
+    }
+  }
+
+  async reset(): Promise<string> {
+    try {
+      const result = await ExpoMicroIdeModule.resetScript();
+      this.setBoardStatus(BoardStatus.STOPPED);
+      this.lastOutput = '';
+      return result;
+    } catch (error) {
+      this.setBoardStatus(BoardStatus.ERROR);
+      throw error;
+    }
+  }
+
+  getLastOutput(): string {
+    return this.lastOutput;
+  }
+
+  onStatusChange(callback: (status: BoardStatus) => void): () => void {
+    this.statusListeners.push(callback);
+    return () => {
+      this.statusListeners = this.statusListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  onConnectionChange(callback: (status: ConnectionStatus) => void): () => void {
+    this.connectionListeners.push(callback);
+    return () => {
+      this.connectionListeners = this.connectionListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  private setBoardStatus(status: BoardStatus) {
+    this.boardStatus = status;
+    this.statusListeners.forEach(cb => cb(status));
+  }
+
+  private setConnectionStatus(status: ConnectionStatus) {
+    this.connectionStatus = status;
+    this.connectionListeners.forEach(cb => cb(status));
+  }
 }
 
-export async function list(): Promise<MicroFile[]> {
-  const response = await ExpoMicroIdeModule.listFiles();
-  return JSON.parse(response) as MicroFile[];
-}
+// Create instances
+const board = new Board();
+const files = new FileSystem();
 
-function hello(): string {
-  return ExpoMicroIdeModule.hello();
-}
-
-async function create(name: string): Promise<string> {
-  return ExpoMicroIdeModule.createFile(name);
-}
-
-async function remove(fileName: string): Promise<string> {
-  return ExpoMicroIdeModule.deleteFile(fileName);
-}
-
-async function rename(oldName: string, newName: string): Promise<string> {
-  return ExpoMicroIdeModule.renameFile(oldName, newName);
-}
-
-async function read(path: string): Promise<string> {
-  return ExpoMicroIdeModule.readFile(path);
-}
-
-async function write(path: string, content: string): Promise<string> {
-  return ExpoMicroIdeModule.writeFile(path, content);
-}
-
-async function run() {
-  return ExpoMicroIdeModule.executeScript();
-}
-
-async function pause() {
-  return ExpoMicroIdeModule.pauseScript();
-}
-
-async function reset() {
-  return ExpoMicroIdeModule.resetScript();
-}
-
-const files = {
-  write, read, rename, remove, create, list
-}
-
-const board = {
-  run,
-  reset,
-  pause
-}
-
+// Export public API
 export {
+  board,
   files,
-  hello,
-  initialize,
-  type Files,
-  board
-}
+  // Types
+  BoardStatus,
+  ConnectionStatus,
+  ErrorType,
+  FileType,
+  type MicroFile,
+  type IBoard,
+  type IFileSystem
+};
