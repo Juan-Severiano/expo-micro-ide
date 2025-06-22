@@ -1,4 +1,4 @@
-import { BoardStatus, ConnectionStatus } from '../models/MicroFile';
+import { BoardStatus, ConnectionStatus } from "../models/MicroFile";
 
 /**
  * Interface for board control operations
@@ -60,4 +60,4 @@ export interface IBoard {
    * @returns Unsubscribe function
    */
   onConnectionChange(callback: (status: ConnectionStatus) => void): () => void;
-} 
+}

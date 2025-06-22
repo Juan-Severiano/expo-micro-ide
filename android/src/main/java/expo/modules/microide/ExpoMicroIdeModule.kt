@@ -23,10 +23,6 @@ class ExpoMicroIdeModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("ExpoMicroIde")
 
-    Function("hello") {
-      return@Function "Hello world Kotlin + Expo Modules! 👋"
-    }
-
     AsyncFunction("initialize") { promise: Promise ->
       try {
         Log.i("ExpoMicroIdeModule", "Iniciando conexão com a placa...")
@@ -80,7 +76,7 @@ class ExpoMicroIdeModule : Module() {
       } catch (e: Exception) {
         Log.e("ExpoMicroIdeModule", "Erro ao deletar arquivo: ${e.message}")
         promise.reject("DELETE_FILE_ERROR", e.message, null)
-      }
+      } 
     }
 
     AsyncFunction("renameFile") { oldName: String, newName: String, promise: Promise ->

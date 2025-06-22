@@ -1,36 +1,42 @@
-import { IBoard } from './domain/interfaces/IBoard';
-import { IFileSystem } from './domain/interfaces/IFileSystem';
-import { BoardStatus, ConnectionStatus, ErrorType, FileType, MicroFile } from './domain/models/MicroFile';
-import ExpoMicroIdeModule from './ExpoMicroIdeModule';
+import ExpoMicroIdeModule from "./ExpoMicroIdeModule";
+import { IBoard } from "./domain/interfaces/IBoard";
+import { IFileSystem } from "./domain/interfaces/IFileSystem";
+import {
+  BoardStatus,
+  ConnectionStatus,
+  ErrorType,
+  FileType,
+  MicroFile,
+} from "./domain/models/MicroFile";
 
 /**
  * Implementation of the file system interface
  */
 class FileSystem implements IFileSystem {
-  async list(path?: string): Promise<MicroFile[]> {
-    const response = await ExpoMicroIdeModule.listFiles(path);
-  return JSON.parse(response) as MicroFile[];
-}
+  async list(): Promise<MicroFile[]> {
+    const response = await ExpoMicroIdeModule.listFiles();
+    return JSON.parse(response) as MicroFile[];
+  }
 
-  async create(name: string, path?: string): Promise<string> {
-    return ExpoMicroIdeModule.createFile(name, path);
-}
+  async create(name: string): Promise<string> {
+    return ExpoMicroIdeModule.createFile(name);
+  }
 
-  async remove(fileName: string, path?: string): Promise<string> {
-    return ExpoMicroIdeModule.deleteFile(fileName, path);
-}
+  async remove(fileName: string): Promise<string> {
+    return ExpoMicroIdeModule.deleteFile(fileName);
+  }
 
-  async rename(oldName: string, newName: string, path?: string): Promise<string> {
-    return ExpoMicroIdeModule.renameFile(oldName, newName, path);
-}
+  async rename(oldName: string, newName: string): Promise<string> {
+    return ExpoMicroIdeModule.renameFile(oldName, newName);
+  }
 
   async read(path: string): Promise<string> {
-  return ExpoMicroIdeModule.readFile(path);
-}
+    return ExpoMicroIdeModule.readFile(path);
+  }
 
   async write(path: string, content: string): Promise<string> {
-  return ExpoMicroIdeModule.writeFile(path, content);
-}
+    return ExpoMicroIdeModule.writeFile(path, content);
+  }
 }
 
 /**
@@ -39,7 +45,7 @@ class FileSystem implements IFileSystem {
 class Board implements IBoard {
   private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
   private boardStatus: BoardStatus = BoardStatus.STOPPED;
-  private lastOutput: string = '';
+  private lastOutput: string = "";
   private statusListeners: ((status: BoardStatus) => void)[] = [];
   private connectionListeners: ((status: ConnectionStatus) => void)[] = [];
 
@@ -73,7 +79,7 @@ class Board implements IBoard {
       this.setBoardStatus(BoardStatus.ERROR);
       throw error;
     }
-}
+  }
 
   async pause(): Promise<string> {
     try {
@@ -90,7 +96,7 @@ class Board implements IBoard {
     try {
       const result = await ExpoMicroIdeModule.resetScript();
       this.setBoardStatus(BoardStatus.STOPPED);
-      this.lastOutput = '';
+      this.lastOutput = "";
       return result;
     } catch (error) {
       this.setBoardStatus(BoardStatus.ERROR);
@@ -105,25 +111,29 @@ class Board implements IBoard {
   onStatusChange(callback: (status: BoardStatus) => void): () => void {
     this.statusListeners.push(callback);
     return () => {
-      this.statusListeners = this.statusListeners.filter(cb => cb !== callback);
+      this.statusListeners = this.statusListeners.filter(
+        (cb) => cb !== callback,
+      );
     };
   }
 
   onConnectionChange(callback: (status: ConnectionStatus) => void): () => void {
     this.connectionListeners.push(callback);
     return () => {
-      this.connectionListeners = this.connectionListeners.filter(cb => cb !== callback);
+      this.connectionListeners = this.connectionListeners.filter(
+        (cb) => cb !== callback,
+      );
     };
   }
 
   private setBoardStatus(status: BoardStatus) {
     this.boardStatus = status;
-    this.statusListeners.forEach(cb => cb(status));
+    this.statusListeners.forEach((cb) => cb(status));
   }
 
   private setConnectionStatus(status: ConnectionStatus) {
     this.connectionStatus = status;
-    this.connectionListeners.forEach(cb => cb(status));
+    this.connectionListeners.forEach((cb) => cb(status));
   }
 }
 
@@ -142,5 +152,5 @@ export {
   FileType,
   type MicroFile,
   type IBoard,
-  type IFileSystem
+  type IFileSystem,
 };

@@ -39,6 +39,7 @@
     "react-native": "*"
   },
   "dependencies": {
-    "expo-document-picker": "^12.0.2"
+    "expo-document-picker": "^12.0.2",
+    "expo-micro-ide": "^1.3.2"
   }
 }

@@ -1,4 +1,4 @@
-import { MicroFile } from '../models/MicroFile';
+import { MicroFile } from "../models/MicroFile";
 
 /**
  * Interface for file system operations
@@ -50,4 +50,4 @@ export interface IFileSystem {
    * @returns Promise with success message
    */
   write(path: string, content: string): Promise<string>;
-} 
+}

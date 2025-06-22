@@ -2,7 +2,7 @@
 
 androidGradlePlugin = "8.5.1"
 desugarJdk = "2.0.4"
-kotlinAndroid = "1.9.23"
+kotlinAndroid = "1.9.22"
 kotlinCompilerExtensionVersion = "1.5.9"
 navigationSafeargs = "2.7.7"
 firebaseCrashlytics = "2.9.9"

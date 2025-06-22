@@ -19,7 +19,7 @@ export interface MicroFile {
  */
 export enum FileType {
   FILE = 0,
-  DIRECTORY = 1
+  DIRECTORY = 1,
 }
 
 /**
@@ -29,7 +29,7 @@ export enum ConnectionStatus {
   CONNECTED = "Connected",
   CONNECTING = "Connecting",
   ERROR = "Error",
-  DISCONNECTED = "Disconnected"
+  DISCONNECTED = "Disconnected",
 }
 
 /**
@@ -39,7 +39,7 @@ export enum BoardStatus {
   RUNNING = "Running",
   PAUSED = "Paused",
   STOPPED = "Stopped",
-  ERROR = "Error"
+  ERROR = "Error",
 }
 
 /**
@@ -50,5 +50,5 @@ export enum ErrorType {
   FILE_SYSTEM_ERROR = "FILE_SYSTEM_ERROR",
   EXECUTION_ERROR = "EXECUTION_ERROR",
   PERMISSION_ERROR = "PERMISSION_ERROR",
-  DEVICE_ERROR = "DEVICE_ERROR"
-} 
+  DEVICE_ERROR = "DEVICE_ERROR",
+}
