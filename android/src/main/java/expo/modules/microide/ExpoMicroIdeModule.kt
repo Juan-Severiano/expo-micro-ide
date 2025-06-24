@@ -152,7 +152,18 @@ class ExpoMicroIdeModule : Module() {
       }
     }
     
-    AsyncFunction("executeScript") { promise: Promise ->
+    AsyncFunction("executeScript") { code: String, promise: Promise ->
+      try {
+        terminalManager.executeScript(code) {
+          promise.resolve("Script executado com sucesso")
+        }
+      } catch (e: Exception) {
+        Log.e("ExpoMicroIdeModule", "Erro ao executar o script: ${e.message}")
+        promise.reject("EXECUTE_SCRIPT_ERROR", e.message, null)
+      }
+    }
+
+    AsyncFunction("executeMain") { promise: Promise ->
       try {
         val code = "import main"
         terminalManager.executeScript(code) {
