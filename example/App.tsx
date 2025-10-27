@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,7 +36,7 @@ export default function App() {
   const [usbDevices, setUsbDevices] = useState<UsbDevice[]>([]);
 
   useEffect(() => {
-    // Inicializar o módulo
+    setStatusMessage("Inicializando módulo...");
     ExpoMicroIde.initialize()
       .then(() => {
         setStatusMessage("Módulo inicializado");
@@ -47,7 +46,6 @@ export default function App() {
         setStatusMessage(`Erro ao inicializar: ${error?.message || error}`);
       });
 
-    // Configurar listeners de eventos
     const statusListener = ExpoMicroIde.addStatusListener((event) => {
       setConnectionStatus(event.status);
       setStatusMessage(
@@ -96,7 +94,6 @@ export default function App() {
       setFiles(event.files);
     });
 
-    // Limpar listeners ao desmontar
     return () => {
       statusListener.remove();
       dataListener.remove();
@@ -216,7 +213,9 @@ export default function App() {
     await withBusy(async () => {
       try {
         const response = await ExpoMicroIde.listFiles();
-        setFiles(response);
+        console.log(response)
+        // @ts-ignore
+        setFiles(JSON.parse(response));
         setStatusMessage(`Arquivos listados: ${response.length}`);
       } catch (error) {
         // @ts-ignore
@@ -301,6 +300,7 @@ export default function App() {
       try {
         const content = await ExpoMicroIde.readFile(fileName.trim());
         setFileContent(content);
+        setScriptContent(content);
         setRenameTarget(fileName.trim());
         setStatusMessage(`Arquivo '${fileName.trim()}' carregado`);
       } catch (error) {
@@ -474,414 +474,405 @@ export default function App() {
   const isConnected = connectionStatus === "connected";
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      {isBusy && (
-        <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      )}
-
-      <Text style={styles.title}>ExpoMicroIde Demo</Text>
-      <Text style={styles.subtitle}>
-        Integração nativa entre React Native e placas microcontroladoras
-      </Text>
-
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusLabel}>Status atual</Text>
-        <Text style={styles.statusText}>{statusMessage}</Text>
-        <Text style={styles.statusMeta}>Conexão: {connectionStatus}</Text>
-        {currentDevice ? (
-          <Text style={styles.statusMeta}>
-            Conectado a: {currentDevice.name} ({currentDevice.port})
-            {currentDevice.isMicroPython ? " - MicroPython" : ""}
-          </Text>
-        ) : (
-          <Text style={styles.statusMeta}>Nenhum dispositivo conectado</Text>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gerenciamento de Dispositivos</Text>
-        <View style={styles.buttonRow}>
-          <Button title="Detectar dispositivos" onPress={detectDevices} />
-          <Button title="Dispositivo atual" onPress={getCurrentDevice} />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Desconectar"
-            onPress={disconnectDevice}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Esquecer"
-            onPress={forgetDevice}
-            disabled={!isConnected}
-          />
-        </View>
-
-        {usbDevices.length > 0 && (
-          <View style={styles.deviceList}>
-            <Text style={styles.subsectionTitle}>
-              Dispositivos USB disponíveis:
-            </Text>
-            {usbDevices.map((device, index) => (
-              <View key={index} style={styles.deviceItem}>
-                <Text style={styles.deviceName}>
-                  {device.deviceName || `Dispositivo ${index + 1}`}
-                </Text>
-                <Text style={styles.deviceDetails}>
-                  VID: {device.vendorId}, PID: {device.productId}
-                </Text>
-                {device.manufacturerName && (
-                  <Text style={styles.deviceDetails}>
-                    Fabricante: {device.manufacturerName}
-                  </Text>
-                )}
-                {device.productName && (
-                  <Text style={styles.deviceDetails}>
-                    Produto: {device.productName}
-                  </Text>
-                )}
-                <Button
-                  title="Aprovar"
-                  onPress={() =>
-                    approveDevice(`${device.vendorId}-${device.productId}`)
-                  }
-                />
-              </View>
-            ))}
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        {isBusy && (
+          <View style={styles.loaderOverlay}>
+            <ActivityIndicator size="large" color="#007AFF" />
           </View>
         )}
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gerenciamento de Arquivos</Text>
-        <TextInput
-          placeholder="Nome do arquivo"
-          value={fileName}
-          onChangeText={setFileName}
-          style={styles.input}
-          editable={isConnected}
-        />
-        <TextInput
-          placeholder="Conteúdo"
-          value={fileContent}
-          onChangeText={setFileContent}
-          style={[styles.input, styles.textArea]}
-          multiline
-          editable={isConnected}
-        />
-        <View style={styles.buttonRow}>
-          <Button
-            title="Listar arquivos"
-            onPress={listFiles}
-            disabled={!isConnected}
-          />
-          <Button title="Limpar campos" onPress={clearFields} />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Criar arquivo"
-            onPress={createFile}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Deletar arquivo"
-            onPress={deleteFile}
-            disabled={!isConnected}
-          />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Ler arquivo"
-            onPress={readFile}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Escrever arquivo"
-            onPress={writeFile}
-            disabled={!isConnected}
-          />
-        </View>
-        <TextInput
-          placeholder="Novo nome (para renomear)"
-          value={renameTarget}
-          onChangeText={setRenameTarget}
-          style={styles.input}
-          editable={isConnected}
-        />
-        <Button
-          title="Renomear arquivo"
-          onPress={renameFile}
-          disabled={!isConnected}
-        />
-      </View>
+        <Text style={styles.title}>ExpoMicroIde Demo</Text>
+        <Text style={styles.subtitle}>
+          Integração nativa entre React Native e placas microcontroladoras
+        </Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Execução de Scripts</Text>
-        <TextInput
-          placeholder="Script Python"
-          value={scriptContent}
-          onChangeText={setScriptContent}
-          style={[styles.input, styles.textArea]}
-          multiline
-          editable={isConnected}
-        />
-        <View style={styles.buttonRow}>
-          <Button
-            title="Executar script"
-            onPress={executeScript}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Pausar script"
-            onPress={pauseScript}
-            disabled={!isConnected}
-          />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Resetar script"
-            onPress={resetScript}
-            disabled={!isConnected}
-          />
-          <Button title="Limpar output" onPress={clearOutput} />
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Comandos REPL</Text>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Enviar comando"
-            onPress={sendCommand}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Modo silencioso"
-            onPress={enterSilentMode}
-            disabled={!isConnected}
-          />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Enviar em modo silencioso"
-            onPress={sendCommandInSilentMode}
-            disabled={!isConnected}
-          />
-        </View>
-        <View style={styles.buttonRow}>
-          <Button
-            title="Enviar Ctrl+C"
-            onPress={sendCtrlC}
-            disabled={!isConnected}
-          />
-          <Button
-            title="Enviar Ctrl+D"
-            onPress={sendCtrlD}
-            disabled={!isConnected}
-          />
-        </View>
-        <Button
-          title="Resetar board"
-          onPress={resetBoard}
-          disabled={!isConnected}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Output</Text>
-        <View style={styles.outputCard}>
-          <Text style={styles.outputText}>
-            {lastOutput ? lastOutput : "Nenhum output disponível"}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Arquivos no dispositivo</Text>
-        <FlatList
-          data={files}
-          keyExtractor={(item) => item.name}
-          style={styles.fileList}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.fileItem}
-              onPress={() => {
-                setFileName(item.name);
-                setRenameTarget(item.name);
-              }}
-            >
-              <Text style={styles.fileName}>{item.name}</Text>
-              <Text style={styles.fileDetails}>
-                {item.size} bytes —{item.type === 0 ? " Arquivo" : " Pasta"}
-              </Text>
-            </TouchableOpacity>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Status atual</Text>
+          <Text style={styles.statusText}>{statusMessage}</Text>
+          <Text style={styles.statusMeta}>Conexão: {connectionStatus}</Text>
+          {currentDevice ? (
+            <Text style={styles.statusMeta}>
+              Conectado a: {currentDevice.name} ({currentDevice.port})
+              {currentDevice.isMicroPython ? " - MicroPython" : ""}
+            </Text>
+          ) : (
+            <Text style={styles.statusMeta}>Nenhum dispositivo conectado</Text>
           )}
-          ListEmptyComponent={
-            <Text style={styles.fileDetails}>Nenhum arquivo disponível</Text>
-          }
-        />
-      </View>
+        </View>
 
-      <View style={styles.footerSpacer} />
-    </ScrollView>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gerenciamento de Dispositivos</Text>
+          <View style={styles.buttonRow}>
+            <Button title="Detectar dispositivos" onPress={detectDevices} />
+            <Button title="Dispositivo atual" onPress={getCurrentDevice} />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Desconectar"
+              onPress={disconnectDevice}
+            />
+            <Button
+              title="Esquecer"
+              onPress={forgetDevice}
+            />
+          </View>
+
+          {usbDevices.length > 0 && (
+            <View style={styles.deviceList}>
+              <Text style={styles.subsectionTitle}>
+                Dispositivos USB disponíveis:
+              </Text>
+              {usbDevices.map((device, index) => (
+                <View key={index} style={styles.deviceItem}>
+                  <Text style={styles.deviceName}>
+                    {device.deviceName || `Dispositivo ${index + 1}`}
+                  </Text>
+                  <Text style={styles.deviceDetails}>
+                    VID: {device.vendorId}, PID: {device.productId}
+                  </Text>
+                  {device.manufacturerName && (
+                    <Text style={styles.deviceDetails}>
+                      Fabricante: {device.manufacturerName}
+                    </Text>
+                  )}
+                  {device.productName && (
+                    <Text style={styles.deviceDetails}>
+                      Produto: {device.productName}
+                    </Text>
+                  )}
+                  <Button
+                    title="Aprovar"
+                    onPress={() =>
+                      approveDevice(`${device.vendorId}-${device.productId}`)
+                    }
+                  />
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gerenciamento de Arquivos</Text>
+          <TextInput
+            placeholder="Nome do arquivo"
+            value={fileName}
+            onChangeText={setFileName}
+            style={styles.input}
+            editable={isConnected}
+          />
+          <TextInput
+            placeholder="Conteúdo"
+            value={fileContent}
+            onChangeText={setFileContent}
+            style={[styles.input, styles.textArea]}
+            multiline
+            editable={isConnected}
+          />
+          <View style={styles.buttonRow}>
+            <Button
+              title="Listar arquivos"
+              onPress={listFiles}
+            />
+            <Button
+              title="Executar arquivo"
+              onPress={() => executeScript()}
+            />
+            <Button title="Limpar campos" onPress={clearFields} />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Criar arquivo"
+              onPress={createFile}
+            />
+            <Button
+              title="Deletar arquivo"
+              onPress={deleteFile}
+            />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Ler arquivo"
+              onPress={readFile}
+            />
+            <Button
+              title="Escrever arquivo"
+              onPress={writeFile}
+            />
+          </View>
+          <TextInput
+            placeholder="Novo nome (para renomear)"
+            value={renameTarget}
+            onChangeText={setRenameTarget}
+            style={styles.input}
+            editable={isConnected}
+          />
+          <Button
+            title="Renomear arquivo"
+            onPress={renameFile}
+            disabled={!isConnected}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Execução de Scripts</Text>
+          <TextInput
+            placeholder="Script Python"
+            value={scriptContent}
+            onChangeText={setScriptContent}
+            style={[styles.input, styles.textArea]}
+            multiline
+            editable={isConnected}
+          />
+          <View style={styles.buttonRow}>
+            <Button
+              title="Executar script"
+              onPress={executeScript}
+            />
+            <Button
+              title="Pausar script"
+              onPress={pauseScript}
+            />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Resetar script"
+              onPress={resetScript}
+            />
+            <Button title="Limpar output" onPress={clearOutput} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Comandos REPL</Text>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Enviar comando"
+              onPress={sendCommand}
+            />
+            <Button
+              title="Modo silencioso"
+              onPress={enterSilentMode}
+            />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Enviar em modo silencioso"
+              onPress={sendCommandInSilentMode}
+            />
+          </View>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Enviar Ctrl+C"
+              onPress={sendCtrlC}
+            />
+            <Button
+              title="Enviar Ctrl+D"
+              onPress={sendCtrlD}
+            />
+          </View>
+          <Button
+            title="Resetar board"
+            onPress={resetBoard}
+            disabled={!isConnected}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Output</Text>
+          <View style={styles.outputCard}>
+            <Text style={styles.outputText}>
+              {lastOutput ? lastOutput : "Nenhum output disponível"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Arquivos no dispositivo</Text>
+          <View style={styles.fileListContainer}>
+            {files.length > 0 ?
+              files?.map((item) => (
+                <TouchableOpacity
+                  key={item.name}
+                  style={styles.fileItem}
+                  onPress={() => {
+                    setFileName(item.name);
+                    setRenameTarget(item.name);
+                    readFile();
+                  }}
+                >
+                  <Text style={styles.fileName}>{item.name}</Text>
+                </TouchableOpacity>
+              ))
+              : (
+                <Text style={styles.emptyListText}>Nenhum arquivo encontrado</Text>
+              )}
+          </View>
+        </View>
+
+        <View style={styles.footerSpacer} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#f5f5f5",
   },
   contentContainer: {
-    padding: 20,
-    paddingBottom: 60,
+    padding: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#0F172A",
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: "center",
   },
   subtitle: {
-    fontSize: 14,
-    color: "#475569",
-    marginBottom: 20,
-  },
-  statusContainer: {
-    backgroundColor: "#F1F5F9",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  statusLabel: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    color: "#64748B",
-    marginBottom: 6,
-  },
-  statusText: {
     fontSize: 16,
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  statusMeta: {
-    fontSize: 12,
-    color: "#475569",
+    color: "#666",
+    marginBottom: 24,
+    textAlign: "center",
   },
   section: {
-    marginBottom: 28,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
+    backgroundColor: "white",
+    borderRadius: 8,
     padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#0F172A",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   subsectionTitle: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#334155",
-    marginBottom: 8,
     marginTop: 8,
+    marginBottom: 8,
+  },
+  statusContainer: {
+    backgroundColor: "#e8f4fd",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  statusMeta: {
+    fontSize: 12,
+    color: "#666",
   },
   input: {
-    width: "100%",
-    padding: 10,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#CBD5F5",
-    marginBottom: 12,
-    backgroundColor: "#FFFFFF",
-    color: "#000",
+    borderColor: "#ddd",
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 16,
+    backgroundColor: "white",
   },
   textArea: {
-    minHeight: 100,
+    height: 100,
     textAlignVertical: "top",
   },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   outputCard: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 4,
+    padding: 8,
     minHeight: 100,
-    maxHeight: 300,
   },
   outputText: {
-    fontSize: 13,
-    color: "#1E293B",
     fontFamily: "monospace",
-  },
-  fileList: {
-    maxHeight: 280,
-  },
-  fileItem: {
-    paddingVertical: 10,
-  },
-  fileName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#0F172A",
-  },
-  fileDetails: {
     fontSize: 12,
-    color: "#475569",
-    marginTop: 2,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#E2E8F0",
-  },
-  loaderOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: "rgba(255,255,255,0.75)",
-    zIndex: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footerSpacer: {
-    height: 40,
   },
   deviceList: {
-    marginTop: 12,
+    marginTop: 16,
   },
   deviceItem: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 4,
     padding: 12,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
   },
   deviceName: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#0F172A",
+    marginBottom: 4,
   },
   deviceDetails: {
     fontSize: 12,
-    color: "#475569",
+    color: "#666",
     marginBottom: 8,
+  },
+  fileListContainer: {
+    minHeight: 100,
+    maxHeight: 300,
+  },
+  fileList: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 4,
+    padding: 8,
+  },
+  fileItem: {
+    padding: 8,
+  },
+  fileName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#000"
+  },
+  fileType: {
+    fontSize: 12,
+    color: "#666",
+  },
+  fileSize: {
+    fontSize: 12,
+    color: "#999",
+  },
+  emptyListText: {
+    padding: 16,
+    textAlign: "center",
+    color: "#999",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#eee",
+  },
+  loaderOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  footerSpacer: {
+    height: 40,
   },
 });
