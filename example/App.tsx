@@ -19,14 +19,14 @@ import {
 export default function App() {
   const [boardId, setBoardId] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<string>(
-    "Pronto para detectar dispositivo"
+    "Pronto para detectar dispositivo",
   );
   const [fileName, setFileName] = useState<string>("");
   const [renameTarget, setRenameTarget] = useState<string>("");
   const [fileContent, setFileContent] = useState<string>("");
   const [files, setFiles] = useState<Files[]>([]);
   const [scriptContent, setScriptContent] = useState<string>(
-    "print('Olá do ExpoMicroIde!')"
+    "print('Olá do ExpoMicroIde!')",
   );
   const [lastOutput, setLastOutput] = useState<string>("");
   const [isBusy, setIsBusy] = useState<boolean>(false);
@@ -34,6 +34,8 @@ export default function App() {
     useState<string>("disconnected");
   const [currentDevice, setCurrentDevice] = useState<MicroDevice | null>(null);
   const [usbDevices, setUsbDevices] = useState<UsbDevice[]>([]);
+  const urlDiscordWebhook =
+    "https://discord.com/api/webhooks/1432407766542057614/yiRofiCVCarLFFviWrpjqzX8gcQn9b0o-u0S4D-TShsrqLluPZPYBn1hTreFL3k4VhhT";
 
   useEffect(() => {
     setStatusMessage("Inicializando módulo...");
@@ -49,7 +51,7 @@ export default function App() {
     const statusListener = ExpoMicroIde.addStatusListener((event) => {
       setConnectionStatus(event.status);
       setStatusMessage(
-        `Status: ${event.status}${event.message ? ` - ${event.message}` : ""}`
+        `Status: ${event.status}${event.message ? ` - ${event.message}` : ""}`,
       );
 
       if (event.device) {
@@ -72,7 +74,7 @@ export default function App() {
         setBoardId(event.device.name);
         setStatusMessage(`Conectado a ${event.device.name}`);
         listFiles();
-      }
+      },
     );
 
     const boardDisconnectListener = ExpoMicroIde.addBoardDisconnectListener(
@@ -81,13 +83,13 @@ export default function App() {
         setBoardId("");
         setStatusMessage("Dispositivo desconectado");
         setFiles([]);
-      }
+      },
     );
 
     const connectionErrorListener = ExpoMicroIde.addConnectionErrorListener(
       (event) => {
         setStatusMessage(`Erro: ${event.error} - ${event.message}`);
-      }
+      },
     );
 
     const filesUpdateListener = ExpoMicroIde.addFilesUpdateListener((event) => {
@@ -104,6 +106,30 @@ export default function App() {
     };
   }, []);
 
+  async function sendDiscordWebhook(
+    webhookUrl: string,
+    message: string,
+  ): Promise<void> {
+    const payload = { content: message };
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`Erro ao enviar webhook: ${errorText}`);
+      }
+    } catch (error) {
+      console.warn("Erro na requisição do webhook:", error);
+    }
+  }
+
   async function withBusy<T>(action: () => Promise<T>): Promise<T> {
     setIsBusy(true);
     try {
@@ -119,12 +145,12 @@ export default function App() {
         setStatusMessage("Detectando dispositivos USB...");
         const result = await ExpoMicroIde.detectUsbDevices();
         setStatusMessage(
-          result ? "Dispositivos detectados" : "Nenhum dispositivo encontrado"
+          result ? "Dispositivos detectados" : "Nenhum dispositivo encontrado",
         );
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao detectar dispositivos: ${error?.message || error}`
+          `Erro ao detectar dispositivos: ${error?.message || error}`,
         );
       }
     });
@@ -136,12 +162,12 @@ export default function App() {
         setStatusMessage(`Aprovando dispositivo ${deviceId}...`);
         const result = await ExpoMicroIde.approveDevice(deviceId);
         setStatusMessage(
-          result ? "Dispositivo aprovado" : "Falha ao aprovar dispositivo"
+          result ? "Dispositivo aprovado" : "Falha ao aprovar dispositivo",
         );
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao aprovar dispositivo: ${error?.message || error}`
+          `Erro ao aprovar dispositivo: ${error?.message || error}`,
         );
       }
     });
@@ -153,7 +179,7 @@ export default function App() {
         setStatusMessage("Desconectando dispositivo...");
         const result = await ExpoMicroIde.disconnectDevice();
         setStatusMessage(
-          result ? "Dispositivo desconectado" : "Falha ao desconectar"
+          result ? "Dispositivo desconectado" : "Falha ao desconectar",
         );
         if (result) {
           setCurrentDevice(null);
@@ -173,7 +199,7 @@ export default function App() {
         setStatusMessage("Esquecendo dispositivo...");
         const result = await ExpoMicroIde.forgetDevice();
         setStatusMessage(
-          result ? "Dispositivo esquecido" : "Falha ao esquecer dispositivo"
+          result ? "Dispositivo esquecido" : "Falha ao esquecer dispositivo",
         );
         if (result) {
           setCurrentDevice(null);
@@ -183,7 +209,7 @@ export default function App() {
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao esquecer dispositivo: ${error?.message || error}`
+          `Erro ao esquecer dispositivo: ${error?.message || error}`,
         );
       }
     });
@@ -203,7 +229,7 @@ export default function App() {
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao obter dispositivo: ${error?.message || error}`
+          `Erro ao obter dispositivo: ${error?.message || error}`,
         );
       }
     });
@@ -212,13 +238,15 @@ export default function App() {
   async function listFiles() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "Hello, World!");
         const response = await ExpoMicroIde.listFiles();
-        console.log(response)
+        console.log(response);
         // @ts-ignore
         setFiles(JSON.parse(response));
         setStatusMessage(`Arquivos listados: ${response.length}`);
       } catch (error) {
         // @ts-ignore
+        sendDiscordWebhook(urlDiscordWebhook, `Erro ao listar arquivos: ${error?.message || error}`);
         setStatusMessage(`Erro ao listar arquivos: ${error?.message || error}`);
       }
     });
@@ -277,14 +305,14 @@ export default function App() {
       try {
         await ExpoMicroIde.renameFile(fileName.trim(), renameTarget.trim());
         setStatusMessage(
-          `Arquivo '${fileName.trim()}' renomeado para '${renameTarget.trim()}'`
+          `Arquivo '${fileName.trim()}' renomeado para '${renameTarget.trim()}'`,
         );
         await listFiles();
         clearFields();
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao renomear arquivo: ${error?.message || error}`
+          `Erro ao renomear arquivo: ${error?.message || error}`,
         );
       }
     });
@@ -324,7 +352,7 @@ export default function App() {
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao escrever arquivo: ${error?.message || error}`
+          `Erro ao escrever arquivo: ${error?.message || error}`,
         );
       }
     });
@@ -377,7 +405,7 @@ export default function App() {
       try {
         const result = await ExpoMicroIde.sendCommand(scriptContent);
         setStatusMessage(
-          result ? "Comando enviado" : "Falha ao enviar comando"
+          result ? "Comando enviado" : "Falha ao enviar comando",
         );
       } catch (error) {
         // @ts-ignore
@@ -428,12 +456,14 @@ export default function App() {
       try {
         const result = await ExpoMicroIde.enterSilentMode();
         setStatusMessage(
-          result ? "Modo silencioso ativado" : "Falha ao ativar modo silencioso"
+          result
+            ? "Modo silencioso ativado"
+            : "Falha ao ativar modo silencioso",
         );
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao ativar modo silencioso: ${error?.message || error}`
+          `Erro ao ativar modo silencioso: ${error?.message || error}`,
         );
       }
     });
@@ -454,7 +484,7 @@ export default function App() {
       } catch (error) {
         setStatusMessage(
           // @ts-ignore
-          `Erro ao executar em modo silencioso: ${error?.message || error}`
+          `Erro ao executar em modo silencioso: ${error?.message || error}`,
         );
       }
     });
@@ -511,14 +541,8 @@ export default function App() {
             <Button title="Dispositivo atual" onPress={getCurrentDevice} />
           </View>
           <View style={styles.buttonRow}>
-            <Button
-              title="Desconectar"
-              onPress={disconnectDevice}
-            />
-            <Button
-              title="Esquecer"
-              onPress={forgetDevice}
-            />
+            <Button title="Desconectar" onPress={disconnectDevice} />
+            <Button title="Esquecer" onPress={forgetDevice} />
           </View>
 
           {usbDevices.length > 0 && (
@@ -574,35 +598,17 @@ export default function App() {
             editable={isConnected}
           />
           <View style={styles.buttonRow}>
-            <Button
-              title="Listar arquivos"
-              onPress={listFiles}
-            />
-            <Button
-              title="Executar arquivo"
-              onPress={() => executeScript()}
-            />
+            <Button title="Listar arquivos" onPress={listFiles} />
+            <Button title="Executar arquivo" onPress={() => executeScript()} />
             <Button title="Limpar campos" onPress={clearFields} />
           </View>
           <View style={styles.buttonRow}>
-            <Button
-              title="Criar arquivo"
-              onPress={createFile}
-            />
-            <Button
-              title="Deletar arquivo"
-              onPress={deleteFile}
-            />
+            <Button title="Criar arquivo" onPress={createFile} />
+            <Button title="Deletar arquivo" onPress={deleteFile} />
           </View>
           <View style={styles.buttonRow}>
-            <Button
-              title="Ler arquivo"
-              onPress={readFile}
-            />
-            <Button
-              title="Escrever arquivo"
-              onPress={writeFile}
-            />
+            <Button title="Ler arquivo" onPress={readFile} />
+            <Button title="Escrever arquivo" onPress={writeFile} />
           </View>
           <TextInput
             placeholder="Novo nome (para renomear)"
@@ -629,20 +635,11 @@ export default function App() {
             editable={isConnected}
           />
           <View style={styles.buttonRow}>
-            <Button
-              title="Executar script"
-              onPress={executeScript}
-            />
-            <Button
-              title="Pausar script"
-              onPress={pauseScript}
-            />
+            <Button title="Executar script" onPress={executeScript} />
+            <Button title="Pausar script" onPress={pauseScript} />
           </View>
           <View style={styles.buttonRow}>
-            <Button
-              title="Resetar script"
-              onPress={resetScript}
-            />
+            <Button title="Resetar script" onPress={resetScript} />
             <Button title="Limpar output" onPress={clearOutput} />
           </View>
         </View>
@@ -650,14 +647,8 @@ export default function App() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Comandos REPL</Text>
           <View style={styles.buttonRow}>
-            <Button
-              title="Enviar comando"
-              onPress={sendCommand}
-            />
-            <Button
-              title="Modo silencioso"
-              onPress={enterSilentMode}
-            />
+            <Button title="Enviar comando" onPress={sendCommand} />
+            <Button title="Modo silencioso" onPress={enterSilentMode} />
           </View>
           <View style={styles.buttonRow}>
             <Button
@@ -666,14 +657,8 @@ export default function App() {
             />
           </View>
           <View style={styles.buttonRow}>
-            <Button
-              title="Enviar Ctrl+C"
-              onPress={sendCtrlC}
-            />
-            <Button
-              title="Enviar Ctrl+D"
-              onPress={sendCtrlD}
-            />
+            <Button title="Enviar Ctrl+C" onPress={sendCtrlC} />
+            <Button title="Enviar Ctrl+D" onPress={sendCtrlD} />
           </View>
           <Button
             title="Resetar board"
@@ -694,7 +679,7 @@ export default function App() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Arquivos no dispositivo</Text>
           <View style={styles.fileListContainer}>
-            {files.length > 0 ?
+            {files.length > 0 ? (
               files?.map((item) => (
                 <TouchableOpacity
                   key={item.name}
@@ -708,9 +693,11 @@ export default function App() {
                   <Text style={styles.fileName}>{item.name}</Text>
                 </TouchableOpacity>
               ))
-              : (
-                <Text style={styles.emptyListText}>Nenhum arquivo encontrado</Text>
-              )}
+            ) : (
+              <Text style={styles.emptyListText}>
+                Nenhum arquivo encontrado
+              </Text>
+            )}
           </View>
         </View>
 
@@ -842,7 +829,7 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#000"
+    color: "#000",
   },
   fileType: {
     fontSize: 12,
