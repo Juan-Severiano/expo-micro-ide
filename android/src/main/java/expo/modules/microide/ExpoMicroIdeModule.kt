@@ -405,6 +405,7 @@ class ExpoMicroIdeModule : Module() {
     }
     val handler = Handler(Looper.getMainLooper())
     handler.post {
+      var settled = false
       boardManager = BoardManager(
         context = context,
         onStatusChanges = { status ->
@@ -428,7 +429,12 @@ class ExpoMicroIdeModule : Module() {
               ))
               
               filesManager.listDir { }
-              promise.resolve(microDevice.board)
+              if (!settled) {
+                settled = true
+                promise.resolve(microDevice.board)
+              } else {
+                Log.w("ExpoMicroIdeModule", "initialize promise already settled; ignoring duplicate resolve")
+              }
             }
 
             is ConnectionStatus.Error -> {
@@ -452,7 +458,12 @@ class ExpoMicroIdeModule : Module() {
               ))
               
               Log.e("ExpoMicroIdeModule", "Erro de conexão: $errorMsg")
-              promise.reject("CONNECTION_ERROR", errorMsg, null)
+              if (!settled) {
+                settled = true
+                promise.reject("CONNECTION_ERROR", errorMsg, null)
+              } else {
+                Log.w("ExpoMicroIdeModule", "initialize promise already settled; ignoring duplicate reject")
+              }
             }
 
             is ConnectionStatus.Approve -> {
