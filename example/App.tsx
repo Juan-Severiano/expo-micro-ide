@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,13 +40,18 @@ export default function App() {
 
   useEffect(() => {
     setStatusMessage("Inicializando módulo...");
+    sendDiscordWebhook(urlDiscordWebhook, "🚀 Iniciando App - useEffect");
+
     ExpoMicroIde.initialize()
       .then(() => {
         setStatusMessage("Módulo inicializado");
+        sendDiscordWebhook(urlDiscordWebhook, "✅ Módulo inicializado com sucesso");
       })
       .catch((error) => {
         // @ts-ignore
-        setStatusMessage(`Erro ao inicializar: ${error?.message || error}`);
+        const errorMsg = `Erro ao inicializar: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg}`);
       });
 
     const statusListener = ExpoMicroIde.addStatusListener((event) => {
@@ -53,6 +59,7 @@ export default function App() {
       setStatusMessage(
         `Status: ${event.status}${event.message ? ` - ${event.message}` : ""}`,
       );
+      sendDiscordWebhook(urlDiscordWebhook, `📊 Status atualizado: ${JSON.stringify(event)}`);
 
       if (event.device) {
         setCurrentDevice(event.device);
@@ -66,6 +73,7 @@ export default function App() {
 
     const dataListener = ExpoMicroIde.addDataListener((event) => {
       setLastOutput((prev) => prev + event.data);
+      sendDiscordWebhook(urlDiscordWebhook, `📥 Dados recebidos: ${event.data.substring(0, 100)}...`);
     });
 
     const boardConnectListener = ExpoMicroIde.addBoardConnectListener(
@@ -73,6 +81,7 @@ export default function App() {
         setCurrentDevice(event.device);
         setBoardId(event.device.name);
         setStatusMessage(`Conectado a ${event.device.name}`);
+        sendDiscordWebhook(urlDiscordWebhook, `🔌 Board conectado: ${JSON.stringify(event.device)}`);
         listFiles();
       },
     );
@@ -83,17 +92,20 @@ export default function App() {
         setBoardId("");
         setStatusMessage("Dispositivo desconectado");
         setFiles([]);
+        sendDiscordWebhook(urlDiscordWebhook, `🔌 Board desconectado: ${JSON.stringify(event)}`);
       },
     );
 
     const connectionErrorListener = ExpoMicroIde.addConnectionErrorListener(
       (event) => {
         setStatusMessage(`Erro: ${event.error} - ${event.message}`);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ Erro de conexão: ${JSON.stringify(event)}`);
       },
     );
 
     const filesUpdateListener = ExpoMicroIde.addFilesUpdateListener((event) => {
       setFiles(event.files);
+      sendDiscordWebhook(urlDiscordWebhook, `📁 Arquivos atualizados: ${event.files.length} arquivos`);
     });
 
     return () => {
@@ -110,7 +122,43 @@ export default function App() {
     webhookUrl: string,
     message: string,
   ): Promise<void> {
-    const payload = { content: message };
+    // Monta informações do dispositivo microcontrolador
+    const deviceInfo = currentDevice
+      ? {
+        nome: currentDevice.name,
+        porta: currentDevice.port,
+        isMicroPython: currentDevice.isMicroPython,
+        vendorId: currentDevice.vendorId,
+        productId: currentDevice.productId,
+      }
+      : null;
+
+    // Monta informações da plataforma Android/iOS
+    const platformInfo = {
+      OS: Platform.OS,
+      version: Platform.Version,
+      ...(Platform.OS === "android" && {
+        androidApiLevel: Platform.Version,
+      }),
+      ...(Platform.OS === "ios" && {
+        isPad: Platform.isPad,
+        isTV: Platform.isTV,
+      }),
+    };
+
+    const enrichedMessage = [
+      `**${message}**`,
+      "",
+      `📱 **Plataforma:**\n\`\`\`json\n${JSON.stringify(platformInfo, null, 2)}\n\`\`\``,
+      "",
+      deviceInfo
+        ? `🔌 **Dispositivo:**\n\`\`\`json\n${JSON.stringify(deviceInfo, null, 2)}\n\`\`\``
+        : "⚠️ Nenhum dispositivo conectado",
+      "",
+      `⏰ ${new Date().toLocaleString("pt-BR")}`,
+    ].join("\n");
+
+    const payload = { content: enrichedMessage };
 
     try {
       const response = await fetch(webhookUrl, {
@@ -143,15 +191,17 @@ export default function App() {
     await withBusy(async () => {
       try {
         setStatusMessage("Detectando dispositivos USB...");
+        sendDiscordWebhook(urlDiscordWebhook, "🔍 Iniciando detecção de dispositivos USB");
+
         const result = await ExpoMicroIde.detectUsbDevices();
-        setStatusMessage(
-          result ? "Dispositivos detectados" : "Nenhum dispositivo encontrado",
-        );
+        const msg = result ? "Dispositivos detectados" : "Nenhum dispositivo encontrado";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg} - Result: ${result}`);
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao detectar dispositivos: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao detectar dispositivos: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -160,15 +210,17 @@ export default function App() {
     await withBusy(async () => {
       try {
         setStatusMessage(`Aprovando dispositivo ${deviceId}...`);
+        sendDiscordWebhook(urlDiscordWebhook, `🔐 Aprovando dispositivo: ${deviceId}`);
+
         const result = await ExpoMicroIde.approveDevice(deviceId);
-        setStatusMessage(
-          result ? "Dispositivo aprovado" : "Falha ao aprovar dispositivo",
-        );
+        const msg = result ? "Dispositivo aprovado" : "Falha ao aprovar dispositivo";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg} - DeviceId: ${deviceId}`);
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao aprovar dispositivo: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao aprovar dispositivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -177,10 +229,13 @@ export default function App() {
     await withBusy(async () => {
       try {
         setStatusMessage("Desconectando dispositivo...");
+        sendDiscordWebhook(urlDiscordWebhook, "🔌 Desconectando dispositivo");
+
         const result = await ExpoMicroIde.disconnectDevice();
-        setStatusMessage(
-          result ? "Dispositivo desconectado" : "Falha ao desconectar",
-        );
+        const msg = result ? "Dispositivo desconectado" : "Falha ao desconectar";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
+
         if (result) {
           setCurrentDevice(null);
           setBoardId("");
@@ -188,7 +243,9 @@ export default function App() {
         }
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao desconectar: ${error?.message || error}`);
+        const errorMsg = `Erro ao desconectar: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -197,20 +254,23 @@ export default function App() {
     await withBusy(async () => {
       try {
         setStatusMessage("Esquecendo dispositivo...");
+        sendDiscordWebhook(urlDiscordWebhook, "🧹 Esquecendo dispositivo");
+
         const result = await ExpoMicroIde.forgetDevice();
-        setStatusMessage(
-          result ? "Dispositivo esquecido" : "Falha ao esquecer dispositivo",
-        );
+        const msg = result ? "Dispositivo esquecido" : "Falha ao esquecer dispositivo";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
+
         if (result) {
           setCurrentDevice(null);
           setBoardId("");
           setFiles([]);
         }
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao esquecer dispositivo: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao esquecer dispositivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -218,19 +278,23 @@ export default function App() {
   async function getCurrentDevice() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "📱 Obtendo dispositivo atual");
+
         const device = await ExpoMicroIde.getCurrentDevice();
         if (device) {
           setCurrentDevice(device);
           setBoardId(device.name);
           setStatusMessage(`Dispositivo atual: ${device.name}`);
+          sendDiscordWebhook(urlDiscordWebhook, `✅ Dispositivo atual: ${JSON.stringify(device)}`);
         } else {
           setStatusMessage("Nenhum dispositivo conectado");
+          sendDiscordWebhook(urlDiscordWebhook, "⚠️ Nenhum dispositivo conectado");
         }
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao obter dispositivo: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao obter dispositivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -238,16 +302,19 @@ export default function App() {
   async function listFiles() {
     await withBusy(async () => {
       try {
-        sendDiscordWebhook(urlDiscordWebhook, "Hello, World!");
+        sendDiscordWebhook(urlDiscordWebhook, "📂 Listando arquivos");
+
         const response = await ExpoMicroIde.listFiles();
         console.log(response);
         // @ts-ignore
         setFiles(JSON.parse(response));
         setStatusMessage(`Arquivos listados: ${response.length}`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivos listados: ${response}`);
       } catch (error) {
         // @ts-ignore
-        sendDiscordWebhook(urlDiscordWebhook, `Erro ao listar arquivos: ${error?.message || error}`);
-        setStatusMessage(`Erro ao listar arquivos: ${error?.message || error}`);
+        const errorMsg = `Erro ao listar arquivos: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -255,18 +322,25 @@ export default function App() {
   async function createFile() {
     if (!fileName.trim()) {
       setStatusMessage("Informe o nome do arquivo para criar");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de criar arquivo sem nome");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `📝 Criando arquivo: ${fileName.trim()}`);
+
         await ExpoMicroIde.createFile(fileName.trim());
         setStatusMessage(`Arquivo '${fileName.trim()}' criado`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivo '${fileName.trim()}' criado com sucesso`);
+
         await listFiles();
         clearFields();
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao criar arquivo: ${error?.message || error}`);
+        const errorMsg = `Erro ao criar arquivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - Arquivo: ${fileName} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -274,18 +348,25 @@ export default function App() {
   async function deleteFile() {
     if (!fileName.trim()) {
       setStatusMessage("Informe o nome do arquivo para deletar");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de deletar arquivo sem nome");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `🗑️ Deletando arquivo: ${fileName.trim()}`);
+
         await ExpoMicroIde.deleteFile(fileName.trim());
         setStatusMessage(`Arquivo '${fileName.trim()}' deletado`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivo '${fileName.trim()}' deletado com sucesso`);
+
         await listFiles();
         clearFields();
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao deletar arquivo: ${error?.message || error}`);
+        const errorMsg = `Erro ao deletar arquivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - Arquivo: ${fileName} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -293,27 +374,33 @@ export default function App() {
   async function renameFile() {
     if (!fileName.trim()) {
       setStatusMessage("Informe o arquivo que deseja renomear");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de renomear arquivo sem nome original");
       return;
     }
 
     if (!renameTarget.trim()) {
       setStatusMessage("Informe o novo nome do arquivo");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de renomear arquivo sem novo nome");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `✏️ Renomeando: ${fileName.trim()} → ${renameTarget.trim()}`);
+
         await ExpoMicroIde.renameFile(fileName.trim(), renameTarget.trim());
         setStatusMessage(
           `Arquivo '${fileName.trim()}' renomeado para '${renameTarget.trim()}'`,
         );
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivo renomeado: ${fileName.trim()} → ${renameTarget.trim()}`);
+
         await listFiles();
         clearFields();
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao renomear arquivo: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao renomear arquivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - De: ${fileName} Para: ${renameTarget} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -321,19 +408,25 @@ export default function App() {
   async function readFile() {
     if (!fileName.trim()) {
       setStatusMessage("Informe o nome do arquivo para leitura");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de ler arquivo sem nome");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `📖 Lendo arquivo: ${fileName.trim()}`);
+
         const content = await ExpoMicroIde.readFile(fileName.trim());
         setFileContent(content);
         setScriptContent(content);
         setRenameTarget(fileName.trim());
         setStatusMessage(`Arquivo '${fileName.trim()}' carregado`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivo lido: ${fileName.trim()} - Tamanho: ${content.length} chars`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao ler arquivo: ${error?.message || error}`);
+        const errorMsg = `Erro ao ler arquivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - Arquivo: ${fileName} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -341,19 +434,24 @@ export default function App() {
   async function writeFile() {
     if (!fileName.trim()) {
       setStatusMessage("Informe o nome do arquivo para escrever");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de escrever arquivo sem nome");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `💾 Escrevendo arquivo: ${fileName.trim()} - Tamanho: ${fileContent.length} chars`);
+
         await ExpoMicroIde.writeFile(fileName.trim(), fileContent);
         setStatusMessage(`Conteúdo salvo em '${fileName.trim()}'`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Arquivo escrito: ${fileName.trim()}`);
+
         clearFields();
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao escrever arquivo: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao escrever arquivo: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - Arquivo: ${fileName} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -362,11 +460,16 @@ export default function App() {
     await withBusy(async () => {
       try {
         setLastOutput("");
+        sendDiscordWebhook(urlDiscordWebhook, `▶️ Executando script: ${scriptContent.substring(0, 100)}...`);
+
         const output = await ExpoMicroIde.executeScript(scriptContent);
         setStatusMessage("Script executado com sucesso");
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Script executado com sucesso`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao executar script: ${error?.message || error}`);
+        const errorMsg = `Erro ao executar script: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -374,11 +477,16 @@ export default function App() {
   async function pauseScript() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "⏸️ Pausando script");
+
         const response = await ExpoMicroIde.pauseScript();
         setStatusMessage(`Script pausado: ${response}`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Script pausado: ${response}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao pausar script: ${error?.message || error}`);
+        const errorMsg = `Erro ao pausar script: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -386,11 +494,16 @@ export default function App() {
   async function resetScript() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "🔄 Resetando script");
+
         const response = await ExpoMicroIde.resetScript();
         setStatusMessage(`Script resetado: ${response}`);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Script resetado: ${response}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao resetar script: ${error?.message || error}`);
+        const errorMsg = `Erro ao resetar script: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -398,18 +511,23 @@ export default function App() {
   async function sendCommand() {
     if (!scriptContent.trim()) {
       setStatusMessage("Informe um comando para enviar");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de enviar comando vazio");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `📤 Enviando comando: ${scriptContent.substring(0, 100)}...`);
+
         const result = await ExpoMicroIde.sendCommand(scriptContent);
-        setStatusMessage(
-          result ? "Comando enviado" : "Falha ao enviar comando",
-        );
+        const msg = result ? "Comando enviado" : "Falha ao enviar comando";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao enviar comando: ${error?.message || error}`);
+        const errorMsg = `Erro ao enviar comando: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -417,11 +535,17 @@ export default function App() {
   async function sendCtrlC() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "⌨️ Enviando Ctrl+C");
+
         const result = await ExpoMicroIde.sendCtrlC();
-        setStatusMessage(result ? "Ctrl+C enviado" : "Falha ao enviar Ctrl+C");
+        const msg = result ? "Ctrl+C enviado" : "Falha ao enviar Ctrl+C";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao enviar Ctrl+C: ${error?.message || error}`);
+        const errorMsg = `Erro ao enviar Ctrl+C: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -429,11 +553,17 @@ export default function App() {
   async function sendCtrlD() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "⌨️ Enviando Ctrl+D");
+
         const result = await ExpoMicroIde.sendCtrlD();
-        setStatusMessage(result ? "Ctrl+D enviado" : "Falha ao enviar Ctrl+D");
+        const msg = result ? "Ctrl+D enviado" : "Falha ao enviar Ctrl+D";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao enviar Ctrl+D: ${error?.message || error}`);
+        const errorMsg = `Erro ao enviar Ctrl+D: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -441,12 +571,18 @@ export default function App() {
   async function resetBoard() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "🔄 Resetando board");
+
         const result = await ExpoMicroIde.resetBoard();
         setLastOutput("");
-        setStatusMessage(result ? "Board resetado" : "Falha ao resetar board");
+        const msg = result ? "Board resetado" : "Falha ao resetar board";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
       } catch (error) {
         // @ts-ignore
-        setStatusMessage(`Erro ao resetar board: ${error?.message || error}`);
+        const errorMsg = `Erro ao resetar board: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -454,17 +590,19 @@ export default function App() {
   async function enterSilentMode() {
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, "🔇 Entrando em modo silencioso");
+
         const result = await ExpoMicroIde.enterSilentMode();
-        setStatusMessage(
-          result
-            ? "Modo silencioso ativado"
-            : "Falha ao ativar modo silencioso",
-        );
+        const msg = result
+          ? "Modo silencioso ativado"
+          : "Falha ao ativar modo silencioso";
+        setStatusMessage(msg);
+        sendDiscordWebhook(urlDiscordWebhook, `✅ ${msg}`);
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao ativar modo silencioso: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao ativar modo silencioso: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -472,20 +610,24 @@ export default function App() {
   async function sendCommandInSilentMode() {
     if (!scriptContent.trim()) {
       setStatusMessage("Informe um comando para enviar em modo silencioso");
+      sendDiscordWebhook(urlDiscordWebhook, "⚠️ Tentativa de enviar comando vazio em modo silencioso");
       return;
     }
 
     await withBusy(async () => {
       try {
+        sendDiscordWebhook(urlDiscordWebhook, `🔇 Enviando comando em modo silencioso: ${scriptContent.substring(0, 100)}...`);
+
         const output =
           await ExpoMicroIde.sendCommandInSilentMode(scriptContent);
         setLastOutput(output);
         setStatusMessage("Comando executado em modo silencioso");
+        sendDiscordWebhook(urlDiscordWebhook, `✅ Comando executado em modo silencioso - Output: ${output.substring(0, 100)}...`);
       } catch (error) {
-        setStatusMessage(
-          // @ts-ignore
-          `Erro ao executar em modo silencioso: ${error?.message || error}`,
-        );
+        // @ts-ignore
+        const errorMsg = `Erro ao executar em modo silencioso: ${error?.message || error}`;
+        setStatusMessage(errorMsg);
+        sendDiscordWebhook(urlDiscordWebhook, `❌ ${errorMsg} - ${JSON.stringify(error)}`);
       }
     });
   }
@@ -494,11 +636,13 @@ export default function App() {
     setFileName("");
     setRenameTarget("");
     setFileContent("");
+    sendDiscordWebhook(urlDiscordWebhook, "🧹 Campos limpos");
   }
 
   function clearOutput() {
     setLastOutput("");
     setStatusMessage("Output limpo");
+    sendDiscordWebhook(urlDiscordWebhook, "🧹 Output limpo");
   }
 
   const isConnected = connectionStatus === "connected";
