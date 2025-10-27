@@ -10,8 +10,11 @@ Pod::Spec.new do |s|
   s.license        = package['license']
   s.author         = package['author']
   s.homepage       = package['homepage']
-  s.platforms      = { :ios => '13.4', :tvos => '13.4' }
-  s.swift_version  = '5.4'
+  s.platforms      = {
+    :ios => '15.1',
+    :tvos => '15.1'
+  }
+  s.swift_version  = '5.9'
   s.source         = { git: 'https://github.com/Juan-Severiano/expo-micro-ide' }
   s.static_framework = true
 
@@ -20,8 +23,7 @@ Pod::Spec.new do |s|
   # Swift/Objective-C compatibility
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
 
-  s.source_files = "**/*.{h,m,swift}"
+  s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
 end

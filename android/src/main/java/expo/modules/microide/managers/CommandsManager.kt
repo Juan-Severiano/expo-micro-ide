@@ -18,7 +18,9 @@ object CommandsManager {
 
     const val SILENT_MODE = "\u0001" //CTRL + A = Start of heading (SOH)
     const val REPL_MODE = "\u0002" //CTRL + B = Start of text (STX)
+    const val CTRL_C = "\u0003" //CTRL + C = End of text (ETX)
     const val TERMINATE = "\u0003" //CTRL + C = End of text (ETX)
+    const val CTRL_D = "\u0004" //CTRL + D = End of transmission (EOT)
     const val RESET = "\u0004" //CTRL + D = End of transmission (EOT)
 
 

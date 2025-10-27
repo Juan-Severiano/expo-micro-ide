@@ -10,10 +10,10 @@ public class ExpoMicroIdeModule: Module {
     // The module will be accessible from `requireNativeModule('ExpoMicroIde')` in JavaScript.
     Name("ExpoMicroIde")
 
-    // Sets constant properties on the module. Can take a dictionary or a closure that returns a dictionary.
-    Constants([
-      "PI": Double.pi
-    ])
+    // Defines constant property on the module.
+    Constant("PI") {
+      Double.pi
+    }
 
     // Defines event names that the module can send to JavaScript.
     Events("onChange")
@@ -35,10 +35,14 @@ public class ExpoMicroIdeModule: Module {
     // Enables the module to be used as a native view. Definition components that are accepted as part of the
     // view definition: Prop, Events.
     View(ExpoMicroIdeView.self) {
-      // Defines a setter for the `name` prop.
-      Prop("name") { (view: ExpoMicroIdeView, prop: String) in
-        print(prop)
+      // Defines a setter for the `url` prop.
+      Prop("url") { (view: ExpoMicroIdeView, url: URL) in
+        if view.webView.url != url {
+          view.webView.load(URLRequest(url: url))
+        }
       }
+
+      Events("onLoad")
     }
   }
 }

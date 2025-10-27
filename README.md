@@ -1,226 +1,107 @@
-# ExpoMicroIde
+# Expo Micro IDE
 
-A powerful Expo native module for interacting with microcontroller boards in React Native applications. This module provides a clean and type-safe interface for file system operations and board control.
+Um ambiente de desenvolvimento integrado para microcontroladores, permitindo programar e interagir com dispositivos MicroPython e CircuitPython diretamente do seu smartphone Android usando React Native e Expo.
 
-## Features
+## Características
 
-- 🔌 Easy board connection and initialization
-- 📁 Complete file system operations (read, write, list, create, delete, rename)
-- ⚡ Script execution and control (run, pause, reset)
-- 📊 Real-time status monitoring
-- 🔒 Type-safe API with TypeScript support
-- 🎯 Clean architecture design
+- ✅ Conexão USB Serial com microcontroladores
+- ✅ Suporte para MicroPython e CircuitPython
+- ✅ Terminal REPL interativo
+- ✅ Editor de código integrado
+- ✅ Gerenciamento de arquivos no dispositivo
+- ✅ Execução de scripts
 
-## Installation
+## Instalação
 
 ```bash
 npm install expo-micro-ide
-# or
-yarn add expo-micro-ide
 ```
 
-## Quick Start
+## Uso Básico
 
-```typescript
-import { board, files } from 'expo-micro-ide';
+```javascript
+import { ExpoMicroIdeModule } from 'expo-micro-ide';
 
-// Initialize connection
-await board.initialize();
+// Detectar dispositivos USB
+ExpoMicroIdeModule.detectUsbDevices();
 
-// List files in root directory
-const fileList = await files.list('/');
+// Enviar comando para o dispositivo
+ExpoMicroIdeModule.sendCommand('print("Hello, World!")');
 
-// Create and write to a file
-await files.create('main.py');
-await files.write('/main.py', 'print("Hello from MicroPython!")');
+// Receber dados do dispositivo
+ExpoMicroIdeModule.addListener('onReceiveData', (data) => {
+  console.log('Dados recebidos:', data);
+});
 
-// Execute the script
-await board.run();
+// Monitorar status de conexão
+ExpoMicroIdeModule.addListener('onStatusChanges', (status) => {
+  console.log('Status da conexão:', status);
+});
 
-// Monitor board status
-board.onStatusChange((status) => {
-  console.log('Board status:', status);
+// Monitorar eventos de conexão
+ExpoMicroIdeModule.addListener('onBoardConnect', (device) => {
+  console.log('Dispositivo conectado:', device);
+});
+
+// Monitorar eventos de desconexão
+ExpoMicroIdeModule.addListener('onBoardDisconnect', (device) => {
+  console.log('Dispositivo desconectado:', device);
 });
 ```
 
-## API Reference
+## Configuração do Android
 
-### File System Operations
+Adicione as seguintes permissões ao seu arquivo `AndroidManifest.xml`:
 
-The `files` object provides the following methods:
-
-#### `list(path?: string): Promise<MicroFile[]>`
-Lists files in the specified directory.
-- `path`: Optional directory path (defaults to root)
-- Returns: Array of MicroFile objects
-
-#### `create(name: string, path?: string): Promise<string>`
-Creates a new file.
-- `name`: Name of the file to create
-- `path`: Optional directory path
-- Returns: Success message
-
-#### `remove(fileName: string, path?: string): Promise<string>`
-Deletes a file.
-- `fileName`: Name of the file to delete
-- `path`: Optional directory path
-- Returns: Success message
-
-#### `rename(oldName: string, newName: string, path?: string): Promise<string>`
-Renames a file.
-- `oldName`: Current file name
-- `newName`: New file name
-- `path`: Optional directory path
-- Returns: Success message
-
-#### `read(path: string): Promise<string>`
-Reads file contents.
-- `path`: Full path to the file
-- Returns: File contents as string
-
-#### `write(path: string, content: string): Promise<string>`
-Writes content to a file.
-- `path`: Full path to the file
-- `content`: Content to write
-- Returns: Success message
-
-### Board Control
-
-The `board` object provides the following methods:
-
-#### `initialize(): Promise<string>`
-Initializes connection with the board.
-- Returns: Board identification string
-
-#### `run(script?: string): Promise<string>`
-Executes a Python script.
-- `script`: Optional script content (defaults to main.py)
-- Returns: Execution result
-
-#### `pause(): Promise<string>`
-Pauses current script execution.
-- Returns: Success message
-
-#### `reset(): Promise<string>`
-Resets the board.
-- Returns: Success message
-
-#### `getLastOutput(): string`
-Gets the last execution output.
-- Returns: Last output or error message
-
-#### `getConnectionStatus(): ConnectionStatus`
-Gets current connection status.
-- Returns: ConnectionStatus enum value
-
-#### `getBoardStatus(): BoardStatus`
-Gets current board execution status.
-- Returns: BoardStatus enum value
-
-### Event Listeners
-
-#### `board.onStatusChange(callback: (status: BoardStatus) => void): () => void`
-Subscribe to board status changes.
-- Returns: Unsubscribe function
-
-#### `board.onConnectionChange(callback: (status: ConnectionStatus) => void): () => void`
-Subscribe to connection status changes.
-- Returns: Unsubscribe function
-
-### Types
-
-```typescript
-enum BoardStatus {
-  RUNNING = "Running",
-  PAUSED = "Paused",
-  STOPPED = "Stopped",
-  ERROR = "Error"
-}
-
-enum ConnectionStatus {
-  CONNECTED = "Connected",
-  CONNECTING = "Connecting",
-  ERROR = "Error",
-  DISCONNECTED = "Disconnected"
-}
-
-interface MicroFile {
-  name: string;
-  path: string;
-  size: number;
-  type: FileType;
-  modifiedAt?: Date;
-}
-
-enum FileType {
-  FILE = 0,
-  DIRECTORY = 1
-}
+```xml
+<uses-feature android:name="android.hardware.usb.host" />
+<uses-permission android:name="android.permission.USB_PERMISSION" />
 ```
 
-## Error Handling
+Adicione o filtro de intenção para detectar dispositivos USB:
 
-The module uses a consistent error handling approach. All async operations may throw errors with the following types:
-
-```typescript
-enum ErrorType {
-  CONNECTION_ERROR = "CONNECTION_ERROR",
-  FILE_SYSTEM_ERROR = "FILE_SYSTEM_ERROR",
-  EXECUTION_ERROR = "EXECUTION_ERROR",
-  PERMISSION_ERROR = "PERMISSION_ERROR",
-  DEVICE_ERROR = "DEVICE_ERROR"
-}
+```xml
+<activity
+    android:name=".MainActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+    </intent-filter>
+    <meta-data
+        android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+        android:resource="@xml/device_filter" />
+</activity>
 ```
 
-Example error handling:
+Crie um arquivo `device_filter.xml` em `res/xml/` com o seguinte conteúdo:
 
-```typescript
-try {
-  await board.initialize();
-    } catch (error) {
-  if (error.code === ErrorType.CONNECTION_ERROR) {
-    console.error('Connection failed:', error.message);
-    }
-  }
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MicroPython devices -->
+    <usb-device vendor-id="11914" /> <!-- 0x2E8A Raspberry Pi Pico -->
+    <!-- Add other devices as needed -->
+</resources>
 ```
 
-## Best Practices
+## Documentação
 
-1. Always initialize the board before performing any operations:
-```typescript
-await board.initialize();
-```
+Para mais informações, consulte a documentação completa:
 
-2. Use the event listeners to monitor status changes:
-```typescript
-board.onStatusChange((status) => {
-  if (status === BoardStatus.ERROR) {
-    // Handle error state
-  }
-});
-```
+- [Primeiros Passos](./docs/getting-started.md)
+- [Referência da API](./docs/api-reference.md)
+- [BoardManager](./docs/board-manager.md)
 
-3. Clean up resources when done:
-```typescript
-const unsubscribe = board.onStatusChange(callback);
-// Later...
-unsubscribe();
-```
+## Exemplo
 
-4. Handle errors appropriately:
-```typescript
-try {
-  await files.write('/main.py', code);
-  await board.run();
-} catch (error) {
-  console.error('Operation failed:', error);
-}
-```
+Veja o [aplicativo de exemplo](./example/) para uma implementação completa.
 
-## Contributing
+## Requisitos
 
-Contributions are welcome! Please read our contributing guidelines and submit pull requests to our GitHub repository.
+- Dispositivo Android com suporte a USB OTG (On-The-Go)
+- Microcontrolador compatível com MicroPython ou CircuitPython
+- Cabo USB compatível
 
-## License
+## Licença
 
-MIT License - see the LICENSE file for details.
+MIT

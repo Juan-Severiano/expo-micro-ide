@@ -1,4 +1,10 @@
-import ExpoMicroIdeModule from "./ExpoMicroIdeModule";
+import ExpoMicroIdeModule, { 
+  ConnectionStatus as ModuleConnectionStatus, 
+  ConnectionError, 
+  MicroDevice, 
+  Files, 
+  UsbDevice 
+} from "./ExpoMicroIdeModule";
 import { IBoard } from "./domain/interfaces/IBoard";
 import { IFileSystem } from "./domain/interfaces/IFileSystem";
 import {
@@ -9,13 +15,15 @@ import {
   MicroFile,
 } from "./domain/models/MicroFile";
 
+export * from './ExpoMicroIdeModule'
+
 /**
  * Implementation of the file system interface
  */
 class FileSystem implements IFileSystem {
   async list(): Promise<MicroFile[]> {
     const response = await ExpoMicroIdeModule.listFiles();
-    return JSON.parse(response) as MicroFile[];
+    return JSON.parse(response as any) as MicroFile[];
   }
 
   async create(name: string): Promise<string> {
@@ -72,7 +80,7 @@ class Board implements IBoard {
   async run(script?: string): Promise<string> {
     try {
       this.setBoardStatus(BoardStatus.RUNNING);
-      const result = await ExpoMicroIdeModule.executeScript(script);
+      const result = await ExpoMicroIdeModule.executeScript(script!);
       this.lastOutput = result;
       return result;
     } catch (error) {
@@ -145,11 +153,17 @@ const files = new FileSystem();
 export {
   board,
   files,
+  ExpoMicroIdeModule as ExpoMicroIde,
   // Types
   BoardStatus,
   ConnectionStatus,
   ErrorType,
   FileType,
+  ModuleConnectionStatus as ExpoConnectionStatus,
+  ConnectionError,
+  type MicroDevice,
+  type Files,
+  type UsbDevice,
   type MicroFile,
   type IBoard,
   type IFileSystem,

@@ -1,9 +1,15 @@
 {
-  "platforms": ["android"],
-  "ios": {
-    "modules": ["ExpoMicroIdeModule"]
+  "platforms": [
+    "android"
+  ],
+  "apple": {
+    "modules": [
+      "ExpoMicroIdeModule"
+    ]
   },
   "android": {
-    "modules": ["expo.modules.microide.ExpoMicroIdeModule"]
+    "modules": [
+      "expo.modules.microide.ExpoMicroIdeModule"
+    ]
   }
 }

@@ -32,23 +32,39 @@ import expo.modules.microide.utils.ConnectionStatus
 import expo.modules.microide.utils.ExecutionMode
 
 /**
- * This class is responsible for:
- * - USB to Serial connection between the microcontroller and smartphone.
- * - sending & receiving data/commands.
+ * BoardManager
+ * 
+ * Esta classe é responsável por:
+ * - Gerenciar a conexão USB Serial entre o microcontrolador e o smartphone
+ * - Enviar e receber dados/comandos
+ * - Gerenciar eventos de conexão e desconexão
+ * - Prevenir erros de chamadas duplicadas
+ * 
+ * O BoardManager implementa SerialInputOutputManager.Listener para receber dados da porta serial
+ * e DefaultLifecycleObserver para gerenciar o ciclo de vida da conexão junto com a Activity.
  */
 
 class BoardManager(
   private val context: Activity,
   private val onStatusChanges: ((status: ConnectionStatus) -> Unit)? = null,
   private val onReceiveData: ((data: String) -> Unit)? = null,
+  private val onBoardConnect: ((device: UsbDevice) -> Unit)? = null,
+  private val onBoardDisconnect: ((device: UsbDevice?) -> Unit)? = null,
+  private val onConnectionError: ((error: ConnectionError, message: String) -> Unit)? = null
 ) : SerialInputOutputManager.Listener, DefaultLifecycleObserver {
 
   companion object {
     private const val TAG = "BoardManager"
     private const val ACTION_USB_PERMISSION = "USB_PERMISSION"
     private const val WRITING_TIMEOUT = 5000
+    private const val RECONNECT_DELAY = 2000
   }
+  
+  /**
+   * Dispositivo USB atualmente conectado
+   */
   var currentDevice: UsbDevice? = null
+    private set // Somente a classe pode modificar, mas outros podem ler
 
   private val activity = context as AppCompatActivity
 
@@ -61,11 +77,13 @@ class BoardManager(
   private var syncData = StringBuilder("")
   private var executionMode = ExecutionMode.INTERACTIVE
   private var permissionGranted = false
+  private var isConnecting = false // Evita chamadas duplicadas durante a conexão
 
-  //devices to connect with
-  //only micropython is supported right now
+  // Dispositivos suportados para conexão
+  // Atualmente apenas MicroPython é suportado
   private val supportedManufacturers = mutableListOf(
-    "MicroPython" // for micro python
+    "MicroPython", // para MicroPython
+    "CircuitPython" // para CircuitPython
   )
   private var supportedProducts = mutableSetOf<Int>()
 
@@ -78,27 +96,45 @@ class BoardManager(
    */
 
 
+  /**
+   * Inicialização do BoardManager
+   * - Adiciona o observer do ciclo de vida
+   * - Carrega os produtos suportados da preferência
+   * - Inicia o processo de conexão
+   */
   init {
     activity.lifecycle.addObserver(this)
     getProducts()
     onStatusChanges?.invoke(ConnectionStatus.Connecting)
   }
 
+  /**
+   * Chamado quando a Activity é criada
+   * Inicia a detecção de dispositivos USB
+   */
   override fun onCreate(owner: LifecycleOwner) {
     Log.i(TAG, "onCreate")
     super.onCreate(owner)
     detectUsbDevices()
   }
 
+  /**
+   * Chamado quando a Activity é destruída
+   * Desregistra o receptor de broadcast e fecha a porta serial
+   */
   override fun onDestroy(owner: LifecycleOwner) {
     Log.i(TAG, "onDestroy")
     super.onDestroy(owner)
     try {
-      //unregister usb broadcast receiver on destroy to avoid repeating its callback
+      // Desregistra o receptor de broadcast USB para evitar callbacks repetidos
       context.unregisterReceiver(usbReceiver)
-      if (port?.isOpen == true) port?.close()
+      // Fecha a porta serial se estiver aberta
+      if (port?.isOpen == true) {
+        port?.close()
+        onBoardDisconnect?.invoke(currentDevice)
+      }
     } catch (e: Exception) {
-      // e.printStackTrace()
+      Log.e(TAG, "Erro ao limpar recursos: ${e.message}")
     }
   }
 
@@ -183,9 +219,18 @@ class BoardManager(
   }
 
   /**
-   * List the connected devices & connect to the supported devices only
+   * Lista os dispositivos conectados e conecta apenas aos dispositivos suportados
+   * Evita chamadas duplicadas durante o processo de conexão
    */
   fun detectUsbDevices() {
+    // Evita chamadas duplicadas durante o processo de conexão
+    if (isConnecting) {
+      Log.i(TAG, "detectUsbDevices - Já existe uma conexão em andamento")
+      return
+    }
+    
+    isConnecting = true
+    
     usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     val deviceList = usbManager.deviceList
 
@@ -204,9 +249,13 @@ class BoardManager(
     Log.i(TAG, "detectUsbDevices - deviceList =  ${deviceList.size}")
 
     if (supportedDevice != null) approveDevice(supportedDevice)
-    else if (deviceList.isNotEmpty()) onStatusChanges?.invoke(
-      ConnectionStatus.Approve(usbDevices = deviceList.values.toList())
-    ) else throwError(ConnectionError.NO_DEVICES)
+    else if (deviceList.isNotEmpty()) {
+      isConnecting = false
+      onStatusChanges?.invoke(ConnectionStatus.Approve(usbDevices = deviceList.values.toList()))
+    } else {
+      isConnecting = false
+      throwError(ConnectionError.NO_DEVICES)
+    }
   }
 
 
@@ -233,7 +282,7 @@ class BoardManager(
     ) else throwError(ConnectionError.NO_DEVICES)
   }
 
-  private fun approveDevice(usbDevice: UsbDevice) {
+  fun approveDevice(usbDevice: UsbDevice) {
     Log.i(TAG, "supportedDevice - $usbDevice")
     currentDevice = usbDevice
     if (usbManager.hasPermission(usbDevice)) connectToSerial(usbDevice)
@@ -300,61 +349,75 @@ class BoardManager(
   /**
    * Make a serial connection to a usb device
    */
+  /**
+   * Estabelece uma conexão serial com o dispositivo USB
+   * 
+   * @param usbDevice O dispositivo USB para conectar
+   */
   private fun connectToSerial(usbDevice: UsbDevice) {
-    val customProber = UsbSerialProber(ProbeTable().apply {
-      addProduct(usbDevice.vendorId, usbDevice.productId, CdcAcmSerialDriver::class.java)
-    })
-
-    val allDrivers = customProber.findAllDrivers(usbManager)
-
-    if (allDrivers.isNullOrEmpty()) {
-      Log.e("ExpoMicroIdeModule", "Nenhum driver encontrado para o dispositivo USB.")
-      return
-    }
-
-    Log.i("ExpoMicroIdeModule", "Drivers encontrados: $allDrivers")
-
-    val ports = allDrivers[0].ports
-    if (ports.isEmpty()) {
-      Log.e("ExpoMicroIdeModule", "Nenhuma porta serial encontrada.")
-      return
-    }
-
-    val connection = usbManager.openDevice(usbDevice)
-    if (connection == null) {
-      Log.e("ExpoMicroIdeModule", "Falha ao abrir conexão com o dispositivo USB.")
-      return
-    }
-
-    Log.i(TAG, "Conexão estabelecida: $connection")
-
-    port = ports[0]
-    Log.i(TAG, "Porta selecionada: $port")
-
     try {
-      port?.open(connection)
-      port?.dtr = true
+      val customProber = UsbSerialProber(ProbeTable().apply {
+        addProduct(usbDevice.vendorId, usbDevice.productId, CdcAcmSerialDriver::class.java)
+      })
+
+      val allDrivers = customProber.findAllDrivers(usbManager)
+
+      if (allDrivers.isNullOrEmpty()) {
+        Log.e(TAG, "Nenhum driver encontrado para o dispositivo USB.")
+        throwError(ConnectionError.NO_DRIVER_FOUND, "Nenhum driver encontrado para o dispositivo")
+        return
+      }
+
+      Log.i(TAG, "Drivers encontrados: $allDrivers")
+
+      val ports = allDrivers[0].ports
+      if (ports.isEmpty()) {
+        Log.e(TAG, "Nenhuma porta serial encontrada.")
+        throwError(ConnectionError.NO_PORT_FOUND, "Nenhuma porta serial encontrada")
+        return
+      }
+
+      val connection = usbManager.openDevice(usbDevice)
+      if (connection == null) {
+        Log.e(TAG, "Falha ao abrir conexão com o dispositivo USB.")
+        throwError(ConnectionError.CANT_OPEN_CONNECTION, "Falha ao abrir conexão com o dispositivo")
+        return
+      }
+
+      Log.i(TAG, "Conexão estabelecida: $connection")
+
+      port = ports[0]
+      Log.i(TAG, "Porta selecionada: $port")
+
+      try {
+        port?.open(connection)
+        port?.dtr = true
+      } catch (e: Exception) {
+        Log.e(TAG, "Erro ao abrir a porta serial: ${e.message}")
+        throwError(ConnectionError.CANT_OPEN_PORT, e.message ?: "")
+        return
+      }
+
+      // Definir parâmetros da conexão serial
+      port?.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+
+      // Iniciar o gerenciador de I/O serial
+      serialInputOutputManager = SerialInputOutputManager(port, this)
+      Thread(serialInputOutputManager).start()
+
+      if (port?.isOpen == true) {
+        Log.i(TAG, "Porta aberta com sucesso.")
+        isConnecting = false
+        onStatusChanges?.invoke(ConnectionStatus.Connected(usbDevice))
+        onBoardConnect?.invoke(usbDevice)
+        storeProductId(usbDevice.productId)
+      } else {
+        Log.e(TAG, "Erro ao abrir a porta serial.")
+        throwError(ConnectionError.CANT_OPEN_PORT, "Porta não pôde ser aberta")
+      }
     } catch (e: Exception) {
-      e.printStackTrace()
-      Log.e("ExpoMicroIdeModule", "Erro ao abrir a porta serial: ${e.message}")
-      throwError(ConnectionError.CANT_OPEN_PORT)
-      return
-    }
-
-    // Definir parâmetros da conexão serial
-    port?.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
-
-    // Iniciar o gerenciador de I/O serial
-    serialInputOutputManager = SerialInputOutputManager(port, this)
-    Thread(serialInputOutputManager).start()
-
-    if (port?.isOpen == true) {
-      Log.i(TAG, "Porta aberta com sucesso.")
-      onStatusChanges?.invoke(ConnectionStatus.Connected(usbDevice))
-      storeProductId(usbDevice.productId)
-    } else {
-      Log.e(TAG, "Erro ao abrir a porta serial.")
-      throwError(ConnectionError.CANT_OPEN_PORT)
+      Log.e(TAG, "Erro inesperado ao conectar: ${e.message}")
+      throwError(ConnectionError.UNEXPECTED_ERROR, e.message ?: "")
     }
   }
 
@@ -402,12 +465,30 @@ class BoardManager(
     }, 2000)
   }
 
+  /**
+   * Método para tratar erros de conexão
+   * 
+   * @param error O tipo de erro que ocorreu
+   * @param msg Mensagem de erro adicional (opcional)
+   */
   private fun throwError(error: ConnectionError, msg: String = "") {
     if (port?.isOpen == true) port?.close()
     serialInputOutputManager?.stop()
+    isConnecting = false
+    
+    // Notifica sobre o erro através dos callbacks
     onStatusChanges?.invoke(
       ConnectionStatus.Error(error = error.toString(), msg = msg)
     )
+    onConnectionError?.invoke(error, msg)
+    
+    // Notifica sobre a desconexão se houver um dispositivo atual
+    currentDevice?.let { device ->
+      onBoardDisconnect?.invoke(device)
+    }
+    
+    // Limpa o dispositivo atual
+    currentDevice = null
   }
 
   private fun removeEnding(input: String): String {

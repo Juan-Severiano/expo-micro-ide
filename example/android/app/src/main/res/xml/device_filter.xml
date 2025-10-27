@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Exemplo para um Arduino UNO -->
+  <usb-device vendor-id="9025" product-id="67" />
+  <!-- ESP32 ou outros podem ser adicionados -->
+  <!-- <usb-device vendor-id="1234" product-id="5678" /> -->
+</resources>

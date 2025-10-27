@@ -34,12 +34,19 @@ sealed class ConnectionStatus {
   data class Approve(val usbDevices: List<UsbDevice?>) : ConnectionStatus()
 }
 
+/**
+ * Enum que representa os diferentes tipos de erros de conexão.
+ */
 enum class ConnectionError {
   NO_DEVICES,
   CANT_OPEN_PORT,
   CONNECTION_LOST,
   PERMISSION_DENIED,
   NOT_SUPPORTED,
+  NO_DRIVER_FOUND,
+  NO_PORT_FOUND,
+  CANT_OPEN_CONNECTION,
+  UNEXPECTED_ERROR
 }
 
 data class MicroDevice(
